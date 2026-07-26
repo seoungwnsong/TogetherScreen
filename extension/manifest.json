@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "TogetherScreen",
+  "version": "1.0.0",
+  "description": "Sync video playback with a TogetherScreen room.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "TogetherScreen"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["socket.io.min.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["storage", "tabs"],
+  "host_permissions": ["http://localhost:3001/*"]
+}
