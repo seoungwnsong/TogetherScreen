@@ -1,34 +1,92 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
   <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TogetherScreen</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
-
   <body>
-    <div class="popup">
-      <div class="brand-row">
-        <div class="logo">
-          <div class="play-icon"></div>
-        </div>
+    <main class="popup-shell">
+      <header class="popup-header">
+        <div class="wordmark">Together<span>Screen</span></div>
+        <span id="connectionDot" class="connection-dot" title="Server status"></span>
+      </header>
 
+      <section id="videoStatus" class="video-status">
         <div>
-          <h1>TogetherScreen</h1>
-          <p>Connect this video page to your room.</p>
+          <p class="eyebrow">ACTIVE TAB</p>
+          <strong id="videoStatusTitle">Checking for video…</strong>
+          <small id="videoStatusDetail">Open a page with an HTML5 video.</small>
         </div>
-      </div>
+        <button id="rescanButton" class="icon-button" type="button" title="Rescan video">↻</button>
+      </section>
 
-      <label>Your name</label>
-      <input id="nameInput" placeholder="Seoungwan" />
+      <section id="setupView" class="card">
+        <div class="mode-switch" role="tablist">
+          <button id="createModeButton" type="button" class="active">Create</button>
+          <button id="joinModeButton" type="button">Join</button>
+        </div>
 
-      <label>Room ID</label>
-      <input id="roomInput" placeholder="room1" />
+        <label class="floating-field">
+          <input id="nameInput" type="text" maxlength="30" placeholder=" " autocomplete="name" />
+          <span>Name</span>
+        </label>
 
-      <button id="joinButton">Join Room</button>
+        <div class="room-code-row">
+          <label class="floating-field">
+            <input id="roomInput" type="text" maxlength="40" placeholder=" " autocomplete="off" />
+            <span>Room code</span>
+          </label>
+          <button id="generateButton" class="secondary-button" type="button">Generate</button>
+        </div>
 
-      <p id="statusText">Not connected yet.</p>
-    </div>
+        <button id="submitButton" class="primary-button" type="button">Create room</button>
+        <p id="setupMessage" class="message" role="status"></p>
+      </section>
 
+      <section id="roomView" class="card hidden">
+        <div class="room-heading">
+          <div>
+            <p class="eyebrow">ROOM</p>
+            <strong id="joinedRoomCode">—</strong>
+          </div>
+          <span id="roleBadge" class="role-badge">Viewer</span>
+        </div>
+
+        <div class="room-stats">
+          <article>
+            <small>People</small>
+            <strong id="peopleCount">0</strong>
+          </article>
+          <article>
+            <small>Ready</small>
+            <strong id="readyCount">0</strong>
+          </article>
+          <article>
+            <small>You</small>
+            <strong id="yourStatus">Not ready</strong>
+          </article>
+        </div>
+
+        <div id="memberList" class="member-list"></div>
+
+        <div class="button-grid">
+          <button id="readyButton" class="secondary-button" type="button">Ready</button>
+          <button id="startButton" class="primary-button" type="button">Start together</button>
+        </div>
+
+        <button id="copyInviteButton" class="text-button" type="button">Copy invite link</button>
+        <button id="leaveButton" class="danger-button" type="button">Leave room</button>
+        <p id="roomMessage" class="message" role="status"></p>
+      </section>
+
+      <footer>
+        <span id="lastEvent">Waiting for a video tab</span>
+      </footer>
+    </main>
+
+    <script src="config.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

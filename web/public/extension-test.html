@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TogetherScreen Extension Test</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        min-height: 100vh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        padding: 32px;
+        background: #050505;
+        color: white;
+        font-family: Inter, system-ui, sans-serif;
+      }
+      main { width: min(920px, 100%); }
+      h1 { margin: 0 0 8px; font-size: clamp(2rem, 5vw, 4rem); }
+      p { margin: 0 0 22px; color: rgba(255,255,255,.65); }
+      video { width: 100%; border-radius: 18px; background: black; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>TogetherScreen extension test</h1>
+      <p>Open this page in two Chrome windows and use the extension to test synchronized playback.</p>
+      <video controls preload="metadata">
+        <source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" type="video/mp4" />
+      </video>
+    </main>
+  </body>
+</html>

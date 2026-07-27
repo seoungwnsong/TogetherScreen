@@ -16,9 +16,24 @@ const allowedOrigins = (process.env.CLIENT_URLS || "http://localhost:5173")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+function isAllowedSocketOrigin(origin) {
+  return (
+    !origin ||
+    allowedOrigins.includes(origin) ||
+    origin.startsWith("chrome-extension://")
+  );
+}
+
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin(origin, callback) {
+      if (isAllowedSocketOrigin(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`Socket origin not allowed: ${origin}`));
+    },
     methods: ["GET", "POST"],
   },
 });
@@ -654,6 +669,10 @@ io.on("connection", (socket) => {
     io.in(roomId).socketsLeave(roomId);
     rooms.delete(roomId);
     reply(callback, { success: true });
+  });
+
+  socket.on("extension-heartbeat", (_event, callback) => {
+    reply(callback, { success: true, at: Date.now() });
   });
 
   socket.on("extension-join-room", (event = {}, callback) => {

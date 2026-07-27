@@ -2,18 +2,47 @@
   "manifest_version": 3,
   "name": "TogetherScreen",
   "version": "1.0.0",
-  "description": "Sync video playback with a TogetherScreen room.",
+  "minimum_chrome_version": "116",
+  "description": "Synchronize HTML5 video playback with a private TogetherScreen room.",
   "action": {
+    "default_title": "TogetherScreen",
     "default_popup": "popup.html",
-    "default_title": "TogetherScreen"
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://localhost:3001/*",
+    "http://localhost:5173/*",
+    "http://*/*",
+    "https://*/*"
+  ],
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["socket.io.min.js", "content.js"],
-      "run_at": "document_idle"
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ],
-  "permissions": ["storage", "tabs"],
-  "host_permissions": ["http://localhost:3001/*"]
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
 }

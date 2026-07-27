@@ -1,19 +1,19 @@
 {
-  "name": "server",
+  "name": "togetherscreen-server",
   "version": "1.0.0",
-  "description": "TogetherScreen backend",
+  "private": true,
+  "description": "Socket.IO backend for TogetherScreen",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "node index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
-    "dotenv": "^17.2.3",
-    "express": "^5.2.1",
-    "socket.io": "^4.8.3"
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
   }
 }

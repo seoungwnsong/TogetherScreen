@@ -1,0 +1,12 @@
+{
+  "name": "togetherscreen-extension",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "vendor": "node scripts/vendor-socketio.mjs"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.8.1"
+  }
+}

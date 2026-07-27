@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: togetherscreen-server
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: CLIENT_URLS
+        value: http://localhost:5173,http://localhost:5174

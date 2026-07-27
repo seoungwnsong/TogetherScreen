@@ -1,168 +1,314 @@
-if (globalThis.__TOGETHER_SCREEN_EXTENSION_LOADED__) {
-  console.log("TogetherScreen: extension already loaded, skipping.");
-} else {
-  globalThis.__TOGETHER_SCREEN_EXTENSION_LOADED__ = true;
+"use strict";
 
-  console.log("TogetherScreen extension loaded.");
+(() => {
+  const OVERLAY_ID = "togetherscreen-extension-overlay";
+  let activeVideo = null;
+  let applyingRemoteUpdate = false;
+  let attachedListeners = null;
+  let scanTimer = null;
 
-  let socket = null;
-  let currentRoomId = null;
-  let currentName = null;
-  let isRemoteUpdate = false;
+  function isVisibleVideo(video) {
+    const rect = video.getBoundingClientRect();
+    const style = getComputedStyle(video);
 
-  const detectedVideos = new WeakSet();
+    return (
+      rect.width >= 160 &&
+      rect.height >= 90 &&
+      style.display !== "none" &&
+      style.visibility !== "hidden" &&
+      Number(style.opacity || 1) > 0
+    );
+  }
 
-  function connectToServer(name, roomId) {
-    if (!name || !roomId) {
-      console.log("TogetherScreen: name or roomId missing.");
+  function findBestVideo() {
+    const videos = Array.from(document.querySelectorAll("video"));
+    if (videos.length === 0) return null;
+
+    const visible = videos.filter(isVisibleVideo);
+    const candidates = visible.length > 0 ? visible : videos;
+
+    return candidates.sort((a, b) => {
+      const aRect = a.getBoundingClientRect();
+      const bRect = b.getBoundingClientRect();
+      return bRect.width * bRect.height - aRect.width * aRect.height;
+    })[0];
+  }
+
+  function videoSnapshot() {
+    const video = activeVideo;
+
+    return {
+      found: Boolean(video),
+      title:
+        document.querySelector("h1")?.textContent?.trim()?.slice(0, 100) ||
+        document.title?.slice(0, 100) ||
+        "Video",
+      currentTime: video ? Number(video.currentTime) || 0 : 0,
+      duration: video && Number.isFinite(video.duration) ? video.duration : 0,
+      paused: video ? video.paused : true,
+      url: location.href,
+    };
+  }
+
+  function reportVideoState() {
+    chrome.runtime.sendMessage({
+      type: "TS_VIDEO_STATE",
+      video: videoSnapshot(),
+    }).catch(() => {});
+  }
+
+  function removeListeners() {
+    if (!activeVideo || !attachedListeners) return;
+
+    activeVideo.removeEventListener("play", attachedListeners.play);
+    activeVideo.removeEventListener("pause", attachedListeners.pause);
+    activeVideo.removeEventListener("seeked", attachedListeners.seeked);
+    activeVideo.removeEventListener("loadedmetadata", attachedListeners.loadedmetadata);
+    activeVideo.removeEventListener("durationchange", attachedListeners.durationchange);
+    attachedListeners = null;
+  }
+
+  function sendLocalEvent(type) {
+    if (!activeVideo || applyingRemoteUpdate) return;
+
+    chrome.runtime.sendMessage({
+      type: "TS_LOCAL_VIDEO_EVENT",
+      event: {
+        type,
+        time: Number(activeVideo.currentTime) || 0,
+        isPlaying: !activeVideo.paused,
+      },
+    }).catch(() => {});
+  }
+
+  function attachVideo(video) {
+    if (video === activeVideo) return;
+
+    removeListeners();
+    activeVideo = video;
+
+    if (!video) {
+      reportVideoState();
       return;
     }
 
-    currentName = name;
-    currentRoomId = roomId;
+    attachedListeners = {
+      play: () => {
+        sendLocalEvent("play");
+        reportVideoState();
+      },
+      pause: () => {
+        sendLocalEvent("pause");
+        reportVideoState();
+      },
+      seeked: () => {
+        sendLocalEvent("seek");
+        reportVideoState();
+      },
+      loadedmetadata: reportVideoState,
+      durationchange: reportVideoState,
+    };
 
-    if (!socket) {
-      socket = io("http://localhost:3001");
+    video.addEventListener("play", attachedListeners.play);
+    video.addEventListener("pause", attachedListeners.pause);
+    video.addEventListener("seeked", attachedListeners.seeked);
+    video.addEventListener("loadedmetadata", attachedListeners.loadedmetadata);
+    video.addEventListener("durationchange", attachedListeners.durationchange);
 
-      socket.on("connect", () => {
-        console.log("TogetherScreen extension connected to server:", socket.id);
+    reportVideoState();
+  }
 
-        socket.emit("extension-join-room", {
-          name: currentName,
-          roomId: currentRoomId,
+  function scanForVideo() {
+    const nextVideo = findBestVideo();
+    attachVideo(nextVideo);
+    return videoSnapshot();
+  }
+
+  function showOverlay(text, { persistent = false } = {}) {
+    document.getElementById(OVERLAY_ID)?.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = OVERLAY_ID;
+    overlay.textContent = text;
+    Object.assign(overlay.style, {
+      position: "fixed",
+      inset: "0",
+      zIndex: "2147483647",
+      display: "grid",
+      placeItems: "center",
+      background: "rgba(0, 0, 0, 0.48)",
+      color: "#ffffff",
+      fontFamily: "Inter, system-ui, sans-serif",
+      fontSize: "clamp(3rem, 12vw, 8rem)",
+      fontWeight: "900",
+      letterSpacing: "-0.05em",
+      pointerEvents: persistent ? "auto" : "none",
+      backdropFilter: "blur(3px)",
+    });
+
+    if (persistent) {
+      overlay.style.fontSize = "clamp(1rem, 4vw, 2rem)";
+      overlay.style.padding = "24px";
+      overlay.style.textAlign = "center";
+      overlay.style.cursor = "pointer";
+      overlay.title = "Click to enable playback";
+      overlay.addEventListener("click", async () => {
+        try {
+          await activeVideo?.play();
+          overlay.remove();
+        } catch {
+          // Keep the overlay visible when the browser still blocks playback.
+        }
+      });
+    }
+
+    document.documentElement.appendChild(overlay);
+    return overlay;
+  }
+
+  async function applyVideoEvent(event) {
+    const video = activeVideo || findBestVideo();
+    if (!video) return { success: false, message: "No video found." };
+
+    attachVideo(video);
+    applyingRemoteUpdate = true;
+
+    try {
+      if (Math.abs(video.currentTime - Number(event.time || 0)) > 0.2) {
+        video.currentTime = Math.max(0, Number(event.time) || 0);
+      }
+
+      if (event.type === "play" || event.isPlaying === true) {
+        try {
+          await video.play();
+        } catch {
+          showOverlay("Click to enable synchronized playback", { persistent: true });
+        }
+      } else if (event.type === "pause" || event.isPlaying === false) {
+        video.pause();
+      }
+    } finally {
+      setTimeout(() => {
+        applyingRemoteUpdate = false;
+        reportVideoState();
+      }, 400);
+    }
+
+    return { success: true, video: videoSnapshot() };
+  }
+
+  async function applySyncState(event) {
+    const video = activeVideo || findBestVideo();
+    if (!video) return { success: false };
+
+    attachVideo(video);
+    const targetTime = Math.max(0, Number(event.time) || 0);
+    const difference = Math.abs(video.currentTime - targetTime);
+    const playingStateDiffers = Boolean(event.isPlaying) === video.paused;
+
+    if (difference > 0.6 || playingStateDiffers) {
+      return applyVideoEvent({
+        type: event.isPlaying ? "play" : "pause",
+        time: targetTime,
+        isPlaying: Boolean(event.isPlaying),
+      });
+    }
+
+    return { success: true, video: videoSnapshot() };
+  }
+
+  async function startTogether(event) {
+    const video = activeVideo || findBestVideo();
+    if (!video) return { success: false, message: "No video found." };
+
+    attachVideo(video);
+    const targetTime = Math.max(0, Number(event.videoTime) || 0);
+    const delay = Math.max(0, Number(event.startAt) - Date.now());
+    const secondsRemaining = Math.max(1, Math.ceil(delay / 1000));
+    let current = secondsRemaining;
+    const overlay = showOverlay(String(current));
+
+    const countdown = setInterval(() => {
+      current -= 1;
+      if (current > 0) overlay.textContent = String(current);
+    }, 1000);
+
+    setTimeout(async () => {
+      clearInterval(countdown);
+      overlay.textContent = "Play";
+      applyingRemoteUpdate = true;
+      video.currentTime = targetTime;
+
+      try {
+        await video.play();
+        setTimeout(() => overlay.remove(), 450);
+      } catch {
+        overlay.remove();
+        showOverlay("Click to enable synchronized playback", { persistent: true });
+      } finally {
+        setTimeout(() => {
+          applyingRemoteUpdate = false;
+          reportVideoState();
+        }, 500);
+      }
+    }, delay);
+
+    return { success: true };
+  }
+
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    (async () => {
+      switch (message?.type) {
+        case "TS_GET_VIDEO_STATE":
+          scanForVideo();
+          return { success: true, video: videoSnapshot() };
+
+        case "TS_RESCAN_VIDEO":
+          return { success: true, video: scanForVideo() };
+
+        case "TS_APPLY_PLAYBACK_SNAPSHOT":
+          return applyVideoEvent({
+            type: message.playback?.isPlaying ? "play" : "pause",
+            time: message.playback?.currentTime || 0,
+            isPlaying: Boolean(message.playback?.isPlaying),
+          });
+
+        case "TS_APPLY_VIDEO_EVENT":
+          return applyVideoEvent(message.event || {});
+
+        case "TS_APPLY_SYNC_STATE":
+          return applySyncState(message.event || {});
+
+        case "TS_START_TOGETHER":
+          return startTogether(message.event || {});
+
+        default:
+          return { success: false, message: "Unknown video request." };
+      }
+    })()
+      .then(sendResponse)
+      .catch((error) => {
+        sendResponse({
+          success: false,
+          message: error instanceof Error ? error.message : "Video control failed.",
         });
       });
 
-      socket.on("extension-error", (error) => {
-        console.log("TogetherScreen extension error:", error.message);
-      });
-
-      socket.on("video-event", async (event) => {
-        console.log("TogetherScreen received remote video event:", event);
-
-        const video = document.querySelector("video");
-
-        if (!video) {
-          return;
-        }
-
-        isRemoteUpdate = true;
-
-        if (event.type === "play") {
-          video.currentTime = event.time;
-          await video.play();
-        }
-
-        if (event.type === "pause") {
-          video.currentTime = event.time;
-          video.pause();
-        }
-
-        if (event.type === "seek") {
-          video.currentTime = event.time;
-        }
-
-        setTimeout(() => {
-          isRemoteUpdate = false;
-        }, 500);
-      });
-    } else if (socket.connected) {
-      socket.emit("extension-join-room", {
-        name: currentName,
-        roomId: currentRoomId,
-      });
-    }
-  }
-
-  function sendVideoEvent(type, video) {
-    if (!socket || !socket.connected) {
-      console.log("TogetherScreen: socket not connected yet.");
-      return;
-    }
-
-    if (!currentRoomId) {
-      console.log("TogetherScreen: no room selected yet.");
-      return;
-    }
-
-    if (isRemoteUpdate) {
-      return;
-    }
-
-    const event = {
-      roomId: currentRoomId,
-      type,
-      time: video.currentTime,
-    };
-
-    console.log("TogetherScreen sending video event:", event);
-
-    socket.emit("video-event", event);
-  }
-
-  function setupVideoDetector(video) {
-    if (!video) {
-      return;
-    }
-
-    if (detectedVideos.has(video)) {
-      return;
-    }
-
-    detectedVideos.add(video);
-
-    console.log("TogetherScreen: Video found!", video);
-
-    video.addEventListener("play", () => {
-      sendVideoEvent("play", video);
-    });
-
-    video.addEventListener("pause", () => {
-      sendVideoEvent("pause", video);
-    });
-
-    video.addEventListener("seeked", () => {
-      sendVideoEvent("seek", video);
-    });
-  }
-
-  function findVideos() {
-    const videos = document.querySelectorAll("video");
-
-    videos.forEach((video) => {
-      setupVideoDetector(video);
-    });
-  }
-
-  function loadRoomInfoAndConnect() {
-    chrome.storage.local.get(["name", "roomId"], (data) => {
-      console.log("TogetherScreen stored room info:", data);
-
-      if (data.name && data.roomId) {
-        connectToServer(data.name, data.roomId);
-      }
-    });
-  }
-
-  chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== "local") {
-      return;
-    }
-
-    if (changes.name || changes.roomId) {
-      loadRoomInfoAndConnect();
-    }
+    return true;
   });
-
-  findVideos();
-  loadRoomInfoAndConnect();
 
   const observer = new MutationObserver(() => {
-    findVideos();
+    clearTimeout(scanTimer);
+    scanTimer = setTimeout(scanForVideo, 300);
   });
 
-  observer.observe(document.body, {
+  observer.observe(document.documentElement, {
     childList: true,
     subtree: true,
+    attributes: true,
+    attributeFilter: ["src", "style", "class"],
   });
-}
+
+  scanForVideo();
+  setInterval(scanForVideo, 3000);
+})();
