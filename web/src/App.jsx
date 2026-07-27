@@ -1,19 +1,191 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import "./App.css";
+import worldMapFilled from "./assets/world-map-filled.png";
 
-const socket = io("http://localhost:3001");
+const SERVER_URL =
+  import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
+
+const socket = io(SERVER_URL, {
+  autoConnect: true,
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 500,
+  reconnectionDelayMax: 3000,
+});
+
+const ROOM_SESSION_KEY = "togetherScreenRoomSession";
+const PARTICIPANT_KEY = "togetherScreenTabParticipantId";
+const DEMO_VIDEO_URL =
+  "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
+
+function makeParticipantId() {
+  return (
+    globalThis.crypto?.randomUUID?.() ||
+    `participant_${Date.now()}_${Math.random().toString(36).slice(2)}`
+  );
+}
+
+function getTabParticipantId() {
+  // sessionStorage is intentionally used instead of localStorage.
+  // Each browser tab should represent a different room participant.
+  const existing = sessionStorage.getItem(PARTICIPANT_KEY);
+  if (existing) return existing;
+
+  const generated = makeParticipantId();
+  sessionStorage.setItem(PARTICIPANT_KEY, generated);
+  return generated;
+}
+
+function roomIdFromPath() {
+  const match = window.location.pathname.match(/^\/room\/([^/]+)$/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+function setRoomPath(roomId) {
+  const nextPath = roomId ? `/room/${encodeURIComponent(roomId)}` : "/";
+  window.history.pushState({}, "", nextPath);
+}
+
+function getInitials(value) {
+  const parts = String(value || "?")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
+function formatMessageTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function createRoomCode() {
+  const first = ["night", "cinema", "screen", "movie", "watch"];
+  const second = ["club", "room", "party", "lounge", "date"];
+  const number = Math.floor(100 + Math.random() * 900);
+
+  return `${first[Math.floor(Math.random() * first.length)]}-${
+    second[Math.floor(Math.random() * second.length)]
+  }-${number}`;
+}
+
+const WHY_FEATURES = [
+  {
+    icon: "globe",
+    title: "Watch together from anywhere",
+    description:
+      "Open one room, invite your people, and stay on the same playback timeline even when you are in different cities or countries.",
+  },
+  {
+    icon: "timeline",
+    title: "One host, one shared timeline",
+    description:
+      "The host controls play, pause, seek, and synchronized starts, so the whole room stays aligned from the first scene to the credits.",
+  },
+  {
+    icon: "chat",
+    title: "Private rooms with live chat",
+    description:
+      "Keep the room private, see who is ready, and chat in real time while you watch together.",
+  },
+];
+
+const FAQ_ITEMS = [
+  {
+    question: "How do I use TogetherScreen?",
+    answer:
+      "Create a room, choose a room code, share the invite link, and ask everyone to join. Once everyone is ready, the host starts the synchronized countdown and playback begins together.",
+  },
+  {
+    question: "Who controls playback?",
+    answer:
+      "The room host controls the main playback timeline. The host can start the room, pause, play, seek, and even transfer host controls to another participant.",
+  },
+  {
+    question: "Do I need to be in the same place?",
+    answer:
+      "No. TogetherScreen was built for remote watch parties. As long as everyone has the room link and joins the same room, you can watch together from anywhere.",
+  },
+];
+
+function MapleMark() {
+  return (
+    <svg
+      className="brand-mark-svg"
+      viewBox="0 0 64 64"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        className="brand-ring"
+        d="M32 4.5c15.2 0 27.5 12.3 27.5 27.5S47.2 59.5 32 59.5 4.5 47.2 4.5 32 16.8 4.5 32 4.5Z"
+      />
+      <path
+        className="brand-leaf"
+        d="M32 11.5l3.7 7.1 7.9-2.4-2 7.4 7.8 3-5.5 5.4 5.2 4.4-7.8.7 1.1 9.8-6.3-3.5L32 54.2l-4.1-11.8-6.4 3.5 1.2-9.8-7.9-.7 5.3-4.4-5.6-5.4 7.8-3-2-7.4 7.9 2.4 3.8-7.1Z"
+      />
+      <path className="brand-stem" d="M32 35.5V53" />
+    </svg>
+  );
+}
+
+function FeatureIcon({ type }) {
+  if (type === "globe") {
+    return (
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <circle cx="24" cy="24" r="17" />
+        <path d="M7 24h34M24 7c5.5 5.2 8.4 10.9 8.4 17S29.5 35.8 24 41M24 7c-5.5 5.2-8.4 10.9-8.4 17S18.5 35.8 24 41" />
+        <circle cx="36" cy="13" r="3.2" />
+      </svg>
+    );
+  }
+
+  if (type === "timeline") {
+    return (
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <rect x="6" y="10" width="36" height="28" rx="7" />
+        <path d="M20 18.5 31 24l-11 5.5v-11Z" />
+        <path d="M12 34h24M27 34h7" />
+        <circle cx="27" cy="34" r="2.5" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M8 11.5h32v22H21l-8 6v-6H8v-22Z" />
+      <circle cx="17" cy="22.5" r="2" />
+      <circle cx="24" cy="22.5" r="2" />
+      <circle cx="31" cy="22.5" r="2" />
+    </svg>
+  );
+}
 
 function App() {
   const videoRef = useRef(null);
+  const chatEndRef = useRef(null);
+  const isRemoteUpdate = useRef(false);
+  const countdownTimer = useRef(null);
+  const isHostRef = useRef(false);
+  const participantIdRef = useRef(getTabParticipantId());
 
-  const [name, setName] = useState("Seoungwan");
-  const [roomId, setRoomId] = useState("test-room");
-  const [roomMode, setRoomMode] = useState(null);
+  const invitedRoomId = useMemo(roomIdFromPath, []);
 
-  const [movieTitle, setMovieTitle] = useState("La La Land");
-  const [movieYear, setMovieYear] = useState("2016");
-  const [platform, setPlatform] = useState("Netflix");
+  const [participantId, setParticipantId] = useState(participantIdRef.current);
+  const [name, setName] = useState("");
+  const [roomId, setRoomId] = useState(invitedRoomId);
+  const [roomMode, setRoomMode] = useState(invitedRoomId ? "join" : "create");
+
 
   const [roomMovieTitle, setRoomMovieTitle] = useState("");
   const [roomMovieYear, setRoomMovieYear] = useState("");
@@ -21,182 +193,377 @@ function App() {
 
   const [joinedRoom, setJoinedRoom] = useState("");
   const [connected, setConnected] = useState(socket.connected);
-  const [lastEvent, setLastEvent] = useState("None yet");
+  const [reconnecting, setReconnecting] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [lastEvent, setLastEvent] = useState("Waiting for playback");
   const [ready, setReady] = useState(false);
   const [roomUsers, setRoomUsers] = useState([]);
-  const [message, setMessage] = useState("");
+  const [notice, setNotice] = useState({ type: "", text: "" });
   const [countdown, setCountdown] = useState(null);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
 
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState([]);
 
-  const isRemoteUpdate = useRef(false);
-  const joined = joinedRoom !== "";
+  const joined = Boolean(joinedRoom);
+  const connectedUsers = roomUsers.filter((user) => user.connected);
+  const currentUser = roomUsers.find(
+    (user) => user.participantId === participantId
+  );
+  const hostUser = roomUsers.find((user) => user.isHost);
+  const isHost = Boolean(currentUser?.isHost);
+  const everyoneReady =
+    connectedUsers.length >= 2 && connectedUsers.every((user) => user.ready);
+  const readyCount = connectedUsers.filter((user) => user.ready).length;
 
-  function resetRoomStateAfterRequest(trimmedRoomId, eventLabel) {
-    setJoinedRoom(trimmedRoomId);
-    setReady(false);
-    setRoomUsers([]);
-    setMessage("");
-    setCountdown(null);
-    setChatMessages([]);
-    setLastEvent(`${eventLabel}: ${trimmedRoomId}`);
+  useEffect(() => {
+    isHostRef.current = isHost;
+  }, [isHost]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [chatMessages]);
+
+  useEffect(() => {
+    if (!notice.text || notice.type === "error") return undefined;
+
+    const timer = window.setTimeout(() => {
+      setNotice({ type: "", text: "" });
+    }, 3500);
+
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  function adoptParticipantId(nextParticipantId) {
+    if (!nextParticipantId || nextParticipantId === participantIdRef.current) {
+      return;
+    }
+
+    participantIdRef.current = nextParticipantId;
+    sessionStorage.setItem(PARTICIPANT_KEY, nextParticipantId);
+    setParticipantId(nextParticipantId);
   }
 
-  function createRoom() {
-    const trimmedRoomId = roomId.trim();
-    const trimmedName = name.trim();
-    const trimmedMovieTitle = movieTitle.trim();
-    const trimmedMovieYear = movieYear.trim();
-    const trimmedPlatform = platform.trim();
+  function showNotice(text, type = "error") {
+    setNotice({ type, text });
+  }
 
-    if (trimmedName === "") {
-      setMessage("Name cannot be empty.");
-      return;
-    }
+  function clearNotice() {
+    setNotice({ type: "", text: "" });
+  }
 
-    if (trimmedRoomId === "") {
-      setMessage("Room name cannot be empty.");
-      return;
-    }
+  function saveRoomSession(nextRoomId, nextName) {
+    sessionStorage.setItem(
+      ROOM_SESSION_KEY,
+      JSON.stringify({ roomId: nextRoomId, name: nextName })
+    );
+  }
 
-    if (trimmedMovieTitle === "") {
-      setMessage("Movie title cannot be empty.");
-      return;
-    }
+  function clearRoomSession() {
+    sessionStorage.removeItem(ROOM_SESSION_KEY);
+  }
 
-    if (trimmedMovieYear === "") {
-      setMessage("Movie year cannot be empty.");
-      return;
-    }
-
-    if (trimmedPlatform === "") {
-      setMessage("Platform cannot be empty.");
-      return;
-    }
-
-    socket.emit("create-room", {
-      roomId: trimmedRoomId,
-      name: trimmedName,
-      movieTitle: trimmedMovieTitle,
-      movieYear: trimmedMovieYear,
-      platform: trimmedPlatform,
+  function mergeMessages(messages = []) {
+    setChatMessages((previous) => {
+      const byId = new Map(previous.map((message) => [message.id, message]));
+      for (const message of messages) {
+        if (message?.id) byId.set(message.id, message);
+      }
+      return Array.from(byId.values()).sort(
+        (a, b) => new Date(a.sentAt) - new Date(b.sentAt)
+      );
     });
-
-    resetRoomStateAfterRequest(trimmedRoomId, "Create room request");
   }
 
-  function joinExistingRoom() {
-    const trimmedRoomId = roomId.trim();
-    const trimmedName = name.trim();
+  function applyRoomState(room) {
+    if (!room) return;
 
-    if (trimmedName === "") {
-      setMessage("Name cannot be empty.");
-      return;
+    setRoomUsers(room.users || []);
+    setRoomMovieTitle(room.movieTitle || "");
+    setRoomMovieYear(room.movieYear || "");
+    setRoomPlatform(room.platform || "");
+
+    if (Array.isArray(room.messages)) {
+      mergeMessages(room.messages);
     }
-
-    if (trimmedRoomId === "") {
-      setMessage("Room name cannot be empty.");
-      return;
-    }
-
-    socket.emit("join-room", {
-      roomId: trimmedRoomId,
-      name: trimmedName,
-    });
-
-    resetRoomStateAfterRequest(trimmedRoomId, "Join room request");
   }
 
-  async function copyInvite() {
-    const inviteRoom = joined ? joinedRoom : roomId;
-    const inviteMovieTitle = joined ? roomMovieTitle : movieTitle;
-    const inviteMovieYear = joined ? roomMovieYear : movieYear;
-    const invitePlatform = joined ? roomPlatform : platform;
+  async function applyPlaybackSnapshot(playback) {
+    const video = videoRef.current;
+    if (!video || !playback) return;
 
-    const inviteText = `Join my TogetherScreen room!
+    isRemoteUpdate.current = true;
 
-Room: ${inviteRoom}
-Movie: ${inviteMovieTitle} (${inviteMovieYear})
-Platform: ${invitePlatform}
-
-Open: http://localhost:5173/`;
+    if (Math.abs(video.currentTime - playback.currentTime) > 0.25) {
+      video.currentTime = playback.currentTime;
+    }
 
     try {
-      await navigator.clipboard.writeText(inviteText);
-      setMessage("Invite copied to clipboard!");
-    } catch (error) {
-      setMessage("Could not copy invite. Please copy it manually.");
+      if (playback.isPlaying) {
+        await video.play();
+      } else {
+        video.pause();
+      }
+      setAutoplayBlocked(false);
+    } catch {
+      setAutoplayBlocked(true);
+      showNotice(
+        "Your browser paused automatic playback. Select Enable playback once.",
+        "info"
+      );
     }
+
+    window.setTimeout(() => {
+      isRemoteUpdate.current = false;
+    }, 350);
   }
 
-  function leaveRoom() {
-    if (!joined) {
-      return;
+  function enterRoom(response, nextName, { preserveChat = false } = {}) {
+    if (!response?.room) return;
+
+    adoptParticipantId(response.participantId);
+
+    const nextRoomId = response.room.roomId;
+    const assignedParticipantId =
+      response.participantId || participantIdRef.current;
+    const me = response.room.users?.find(
+      (user) => user.participantId === assignedParticipantId
+    );
+
+    setJoinedRoom(nextRoomId);
+    setRoomId(nextRoomId);
+    setName(nextName);
+    setReady(Boolean(me?.ready));
+    setCountdown(null);
+    setLastEvent(`Connected to ${nextRoomId}`);
+    setAutoplayBlocked(false);
+    clearNotice();
+
+    if (!preserveChat) {
+      setChatMessages([]);
     }
 
-    socket.emit("leave-room");
+    applyRoomState(response.room);
+    saveRoomSession(nextRoomId, nextName);
+    setRoomPath(nextRoomId);
 
+    window.setTimeout(() => {
+      applyPlaybackSnapshot(response.room.playback);
+    }, 0);
+  }
+
+  function resetRoomState() {
     setJoinedRoom("");
     setReady(false);
     setRoomUsers([]);
-    setMessage("");
     setCountdown(null);
     setChatMessages([]);
     setRoomMovieTitle("");
     setRoomMovieYear("");
     setRoomPlatform("");
-    setLastEvent("Left room");
+    setLastEvent("Waiting for playback");
+    setAutoplayBlocked(false);
+    clearRoomSession();
+    setRoomPath("");
+  }
+
+  function validateCommonFields() {
+    const trimmedName = name.trim();
+    const trimmedRoomId = roomId.trim();
+
+    if (!trimmedName) {
+      showNotice("Enter your name.");
+      return null;
+    }
+
+    if (!/^[A-Za-z0-9_-]{3,40}$/.test(trimmedRoomId)) {
+      showNotice(
+        "Room codes need 3–40 letters, numbers, underscores, or hyphens."
+      );
+      return null;
+    }
+
+    return { trimmedName, trimmedRoomId };
+  }
+
+  function createRoom() {
+    const common = validateCommonFields();
+    if (!common) return;
+
+    setPending(true);
+    clearNotice();
+
+    socket.emit(
+      "create-room",
+      {
+        roomId: common.trimmedRoomId,
+        name: common.trimmedName,
+        participantId: participantIdRef.current,
+      },
+      (response) => {
+        setPending(false);
+
+        if (!response?.success) {
+          showNotice(response?.message || "Could not create the room.");
+          return;
+        }
+
+        enterRoom(response, common.trimmedName);
+      }
+    );
+  }
+
+  function joinExistingRoom() {
+    const common = validateCommonFields();
+    if (!common) return;
+
+    setPending(true);
+    clearNotice();
+
+    socket.emit(
+      "join-room",
+      {
+        roomId: common.trimmedRoomId,
+        name: common.trimmedName,
+        participantId: participantIdRef.current,
+      },
+      (response) => {
+        setPending(false);
+
+        if (!response?.success) {
+          showNotice(response?.message || "Could not join the room.");
+          return;
+        }
+
+        enterRoom(response, common.trimmedName);
+      }
+    );
+  }
+
+  async function copyInvite() {
+    const inviteRoom = joined ? joinedRoom : roomId.trim();
+
+    if (!inviteRoom) {
+      showNotice("Enter a room code first.");
+      return;
+    }
+
+    const inviteUrl = `${window.location.origin}/room/${encodeURIComponent(
+      inviteRoom
+    )}`;
+
+    const inviteText = joined
+      ? `Join my TogetherScreen room\n\n${roomMovieTitle} (${roomMovieYear})\nRoom: ${inviteRoom}\n${inviteUrl}`
+      : `Join my TogetherScreen room\n\nRoom: ${inviteRoom}\n${inviteUrl}`;
+
+    try {
+      await navigator.clipboard.writeText(inviteText);
+      showNotice("Invite copied.", "success");
+    } catch {
+      showNotice("Could not copy the invite. Copy the room code manually.");
+    }
+  }
+
+  async function copyRoomCode() {
+    try {
+      await navigator.clipboard.writeText(joinedRoom);
+      showNotice("Room code copied.", "success");
+    } catch {
+      showNotice("Could not copy the room code.");
+    }
+  }
+
+  function leaveRoom() {
+    if (!joined) return;
+
+    socket.emit("leave-room", null, () => {
+      resetRoomState();
+    });
+  }
+
+  function endRoom() {
+    if (!joined || !isHost) return;
+
+    const confirmed = window.confirm(
+      "End this room for everyone? This cannot be undone."
+    );
+    if (!confirmed) return;
+
+    socket.emit("end-room", { roomId: joinedRoom }, (response) => {
+      if (!response?.success) {
+        showNotice(response?.message || "Could not end the room.");
+      }
+    });
+  }
+
+  function transferHost(targetParticipantId) {
+    socket.emit(
+      "transfer-host",
+      { roomId: joinedRoom, targetParticipantId },
+      (response) => {
+        if (!response?.success) {
+          showNotice(response?.message || "Could not transfer host controls.");
+          return;
+        }
+
+        showNotice("Host controls transferred.", "success");
+      }
+    );
   }
 
   function toggleReady() {
-    if (!joined) {
-      setMessage("Join a room first.");
-      return;
-    }
+    if (!joined) return;
 
-    const newReady = !ready;
-    setReady(newReady);
-    setMessage("");
+    const nextReady = !ready;
+    setReady(nextReady);
+    clearNotice();
 
-    socket.emit("ready-change", {
-      roomId: joinedRoom,
-      ready: newReady,
-    });
-
-    setLastEvent(newReady ? "You are ready" : "You are not ready");
+    socket.emit(
+      "ready-change",
+      { roomId: joinedRoom, ready: nextReady },
+      (response) => {
+        if (!response?.success) {
+          setReady(!nextReady);
+          showNotice("Could not update your ready status.");
+        }
+      }
+    );
   }
 
   function startTogether() {
-    if (!joined) {
-      setMessage("Join a room first.");
-      return;
-    }
+    const video = videoRef.current;
+    if (!joined || !video || !isHost) return;
 
-    socket.emit("start-together", {
-      roomId: joinedRoom,
-      time: 0,
-    });
+    socket.emit(
+      "start-together",
+      { roomId: joinedRoom, time: video.currentTime },
+      (response) => {
+        if (!response?.success) {
+          showNotice(response?.message || "Could not start the room.");
+          return;
+        }
 
-    setLastEvent("Sent: start together request");
+        clearNotice();
+        setLastEvent("Playback scheduled for everyone");
+      }
+    );
   }
 
   function sendChatMessage() {
-    if (!joined) {
-      setMessage("Join a room first.");
-      return;
-    }
+    if (!joined) return;
 
     const trimmedMessage = chatInput.trim();
+    if (!trimmedMessage) return;
 
-    if (trimmedMessage === "") {
-      return;
-    }
-
-    socket.emit("chat-message", {
-      roomId: joinedRoom,
-      message: trimmedMessage,
-    });
+    socket.emit(
+      "chat-message",
+      { roomId: joinedRoom, message: trimmedMessage },
+      (response) => {
+        if (!response?.success) {
+          showNotice("Message could not be sent.");
+        }
+      }
+    );
 
     setChatInput("");
   }
@@ -204,407 +571,755 @@ Open: http://localhost:5173/`;
   function sendVideoEvent(type) {
     const video = videoRef.current;
 
-    if (!video || !joined || isRemoteUpdate.current) {
+    if (!video || !joined || !isHost || isRemoteUpdate.current) {
       return;
     }
 
-    const event = {
+    socket.emit("video-event", {
       roomId: joinedRoom,
       type,
       time: video.currentTime,
-    };
+      isPlaying: !video.paused,
+    });
 
-    socket.emit("video-event", event);
-    setLastEvent(`Sent: ${type} at ${video.currentTime.toFixed(2)}s`);
+    setLastEvent(
+      `${type[0].toUpperCase()}${type.slice(1)} · ${video.currentTime.toFixed(
+        1
+      )}s`
+    );
   }
 
-  function runCountdownAndPlay(startTime) {
+  async function applyRemoteVideoEvent(event) {
     const video = videoRef.current;
+    if (!video) return;
 
-    if (!video) {
-      return;
+    isRemoteUpdate.current = true;
+    setLastEvent(
+      `Synced ${event.type} · ${Number(event.time).toFixed(1)}s`
+    );
+
+    if (Math.abs(video.currentTime - event.time) > 0.15) {
+      video.currentTime = event.time;
     }
 
-    setCountdown(3);
+    try {
+      if (event.type === "play" || event.isPlaying) {
+        await video.play();
+      } else {
+        video.pause();
+      }
+      setAutoplayBlocked(false);
+    } catch {
+      setAutoplayBlocked(true);
+    }
 
-    setTimeout(() => {
-      setCountdown(2);
-    }, 1000);
-
-    setTimeout(() => {
-      setCountdown(1);
-    }, 2000);
-
-    setTimeout(async () => {
-      setCountdown("Play!");
-
-      isRemoteUpdate.current = true;
-
-      video.currentTime = startTime;
-      await video.play();
-
-      setTimeout(() => {
-        setCountdown(null);
-        isRemoteUpdate.current = false;
-      }, 500);
-    }, 3000);
+    window.setTimeout(() => {
+      isRemoteUpdate.current = false;
+    }, 350);
   }
 
-  useEffect(() => {
-    socket.on("connect", () => {
-      setConnected(true);
-    });
+  async function enablePlayback() {
+    const video = videoRef.current;
+    if (!video) return;
 
-    socket.on("disconnect", () => {
-      setConnected(false);
-    });
+    try {
+      await video.play();
+      setAutoplayBlocked(false);
+      showNotice("Playback enabled for this tab.", "success");
+    } catch {
+      showNotice("Click directly on the video, then try again.");
+    }
+  }
 
-    socket.on("room-status", (status) => {
-      setRoomUsers(status.users);
-      setRoomMovieTitle(status.movieTitle);
-      setRoomMovieYear(status.movieYear);
-      setRoomPlatform(status.platform);
-    });
+  function runCountdownAndPlay(videoTime, startAt) {
+    const video = videoRef.current;
+    if (!video) return;
 
-    socket.on("room-error", (error) => {
-      setMessage(error.message);
-      setJoinedRoom("");
-      setReady(false);
-      setRoomUsers([]);
-      setRoomMovieTitle("");
-      setRoomMovieYear("");
-      setRoomPlatform("");
-    });
+    if (countdownTimer.current) {
+      window.clearInterval(countdownTimer.current);
+    }
 
-    socket.on("start-error", (error) => {
-      setMessage(error.message);
-      setLastEvent(`Start blocked: ${error.message}`);
-    });
+    const updateCountdown = async () => {
+      const millisecondsRemaining = startAt - Date.now();
 
-    socket.on("chat-message", (chatMessage) => {
-      setChatMessages((previousMessages) => [
-        ...previousMessages,
-        chatMessage,
-      ]);
-    });
-
-    socket.on("video-event", async (event) => {
-      const video = videoRef.current;
-
-      if (!video) {
+      if (millisecondsRemaining > 0) {
+        setCountdown(Math.max(1, Math.ceil(millisecondsRemaining / 1000)));
         return;
       }
 
-      setLastEvent(`Received: ${event.type} at ${event.time.toFixed(2)}s`);
-
+      window.clearInterval(countdownTimer.current);
+      countdownTimer.current = null;
+      setCountdown("PLAY");
       isRemoteUpdate.current = true;
+      video.currentTime = videoTime;
 
-      if (event.type === "play") {
-        video.currentTime = event.time;
+      try {
         await video.play();
+        setAutoplayBlocked(false);
+      } catch {
+        setAutoplayBlocked(true);
       }
 
-      if (event.type === "pause") {
-        video.currentTime = event.time;
-        video.pause();
-      }
-
-      if (event.type === "seek") {
-        video.currentTime = event.time;
-      }
-
-      setTimeout(() => {
+      window.setTimeout(() => {
+        setCountdown(null);
         isRemoteUpdate.current = false;
-      }, 500);
-    });
+      }, 650);
+    };
 
-    socket.on("start-together", (event) => {
-      setMessage("");
-      setLastEvent(`Received: start together at ${event.time}s`);
-      runCountdownAndPlay(event.time);
-    });
+    updateCountdown();
+    countdownTimer.current = window.setInterval(updateCountdown, 100);
+  }
+
+  useEffect(() => {
+    function handleConnect() {
+      setConnected(true);
+      setReconnecting(false);
+
+      const savedSession = sessionStorage.getItem(ROOM_SESSION_KEY);
+      if (!savedSession) return;
+
+      try {
+        const parsed = JSON.parse(savedSession);
+
+        socket.emit(
+          "rejoin-room",
+          {
+            ...parsed,
+            participantId: participantIdRef.current,
+          },
+          (response) => {
+            if (!response?.success) {
+              clearRoomSession();
+              resetRoomState();
+              showNotice(
+                response?.message || "The previous room is no longer available."
+              );
+              return;
+            }
+
+            enterRoom(response, parsed.name, { preserveChat: true });
+            showNotice("Reconnected to your room.", "success");
+          }
+        );
+      } catch {
+        clearRoomSession();
+      }
+    }
+
+    function handleDisconnect() {
+      setConnected(false);
+      setReconnecting(Boolean(sessionStorage.getItem(ROOM_SESSION_KEY)));
+    }
+
+    function handleConnectError() {
+      setConnected(false);
+      setReconnecting(Boolean(sessionStorage.getItem(ROOM_SESSION_KEY)));
+    }
+
+    function handleRoomStatus(status) {
+      applyRoomState(status);
+
+      const me = status.users?.find(
+        (user) => user.participantId === participantIdRef.current
+      );
+      if (me) setReady(Boolean(me.ready));
+    }
+
+    function handleRoomClosed(payload) {
+      resetRoomState();
+      showNotice(payload?.message || "The room was closed.", "info");
+    }
+
+    function handleChatMessage(chatMessage) {
+      if (!chatMessage?.id) return;
+      mergeMessages([chatMessage]);
+    }
+
+    function handleVideoEvent(event) {
+      applyRemoteVideoEvent(event);
+    }
+
+    function handleSyncState(event) {
+      const video = videoRef.current;
+      if (!video || isHostRef.current) return;
+
+      const difference = Math.abs(video.currentTime - event.time);
+      const playingStateDiffers = event.isPlaying === video.paused;
+
+      if (difference > 0.5 || playingStateDiffers) {
+        applyRemoteVideoEvent({
+          type: event.isPlaying ? "play" : "pause",
+          time: event.time,
+          isPlaying: event.isPlaying,
+        });
+      }
+    }
+
+    function handleStartTogether(event) {
+      clearNotice();
+      setLastEvent(`Starting from ${event.videoTime.toFixed(1)}s`);
+      runCountdownAndPlay(event.videoTime, event.startAt);
+    }
+
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
+    socket.on("connect_error", handleConnectError);
+    socket.on("room-status", handleRoomStatus);
+    socket.on("room-closed", handleRoomClosed);
+    socket.on("chat-message", handleChatMessage);
+    socket.on("video-event", handleVideoEvent);
+    socket.on("sync-state", handleSyncState);
+    socket.on("start-together", handleStartTogether);
+
+    if (socket.connected) handleConnect();
 
     return () => {
-      socket.off("connect");
-      socket.off("disconnect");
-      socket.off("room-status");
-      socket.off("room-error");
-      socket.off("start-error");
-      socket.off("chat-message");
-      socket.off("video-event");
-      socket.off("start-together");
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
+      socket.off("connect_error", handleConnectError);
+      socket.off("room-status", handleRoomStatus);
+      socket.off("room-closed", handleRoomClosed);
+      socket.off("chat-message", handleChatMessage);
+      socket.off("video-event", handleVideoEvent);
+      socket.off("sync-state", handleSyncState);
+      socket.off("start-together", handleStartTogether);
+
+      if (countdownTimer.current) {
+        window.clearInterval(countdownTimer.current);
+      }
     };
   }, []);
 
-  const everyoneReady =
-    roomUsers.length >= 2 && roomUsers.every((user) => user.ready);
+  useEffect(() => {
+    if (!joined || !isHost) return undefined;
+
+    const interval = window.setInterval(() => {
+      const video = videoRef.current;
+      if (!video || !socket.connected) return;
+
+      socket.emit("sync-state", {
+        roomId: joinedRoom,
+        time: video.currentTime,
+        isPlaying: !video.paused,
+      });
+    }, 4000);
+
+    return () => window.clearInterval(interval);
+  }, [joined, joinedRoom, isHost]);
 
   return (
-    <div className="app">
-      <header className="hero">
-        <p className="eyebrow">LONG-DISTANCE MOVIE NIGHT</p>
-        <h1>TogetherScreen</h1>
-        <p className="subtitle">Watch together, stay connected together.</p>
+    <div className="app-shell">
+      <header className="site-header">
+        <button
+          type="button"
+          className="brand"
+          onClick={() => {
+            if (!joined) setRoomPath("");
+          }}
+          aria-label="TogetherScreen home"
+        >
+          <span className="brand-wordmark" aria-hidden="true">
+            <span className="brand-word brand-word-together">Together</span>
+            <span className="brand-word brand-word-screen">
+              <span className="brand-word-s">S</span>
+              <span className="brand-word-rest">creen</span>
+            </span>
+          </span>
+        </button>
+
+        <div
+          className="header-status"
+          aria-live="polite"
+          aria-label={connected ? "Connected" : "Offline"}
+          title={connected ? "Connected" : "Offline"}
+        >
+          <span className={`status-dot ${connected ? "online" : "offline"}`} />
+        </div>
       </header>
 
-      {!joined && (
-        <section className="panel setup-panel">
-          <div className="setup-header">
-            <p className="label">CREATE OR JOIN A ROOM</p>
-            <h2>Set up your movie night</h2>
-          </div>
-
-          <div className="mode-panel">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
-            />
-
-            <div className="mode-buttons">
-              <button
-                className={
-                  roomMode === "create" ? "primary-button" : "secondary-button"
-                }
-                onClick={() => {
-                  setRoomMode("create");
-                  setMessage("");
-                }}
-              >
-                Create Room
-              </button>
-
-              <button
-                className={
-                  roomMode === "join" ? "primary-button" : "secondary-button"
-                }
-                onClick={() => {
-                  setRoomMode("join");
-                  setMessage("");
-                }}
-              >
-                Join Room
-              </button>
-            </div>
-          </div>
-
-          {roomMode === "create" && (
-            <div className="form-grid">
-              <input
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-                placeholder="Room ID"
-              />
-
-              <input
-                value={movieTitle}
-                onChange={(e) => setMovieTitle(e.target.value)}
-                placeholder="Movie title"
-              />
-
-              <input
-                value={movieYear}
-                onChange={(e) => setMovieYear(e.target.value)}
-                placeholder="Year"
-              />
-
-              <input
-                value={platform}
-                onChange={(e) => setPlatform(e.target.value)}
-                placeholder="Platform"
-              />
-
-              <button className="primary-button" onClick={createRoom}>
-                Create Room
-              </button>
-
-              <button className="secondary-button" onClick={copyInvite}>
-                Copy Invite
-              </button>
-            </div>
-          )}
-
-          {roomMode === "join" && (
-            <div className="join-grid">
-              <input
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-                placeholder="Room ID"
-              />
-
-              <button className="primary-button" onClick={joinExistingRoom}>
-                Join Room
-              </button>
-            </div>
-          )}
-
-          {message && (
-            <p className={message.includes("copied") ? "success" : "error"}>
-              {message}
-            </p>
-          )}
-        </section>
+      {reconnecting && (
+        <div className="connection-banner" role="status">
+          <span className="spinner" /> Reconnecting to your watch party…
+        </div>
       )}
 
-      {joined && (
-        <>
-          <section className="panel room-panel">
-            <div className="room-summary compact">
-              <div>
-                <p className="label">Room</p>
-                <h2>{joinedRoom}</h2>
-              </div>
+      {!joined ? (
+        <main className="landing-page">
+          <section className="landing-hero landing-hero-centered">
+            <div className="hero-network-bg" aria-hidden="true">
+              <div className="map-stage">
+                <img
+                  src={worldMapFilled}
+                  alt=""
+                  className="network-map-image"
+                  draggable="false"
+                />
 
-              <div>
-                <p className="label">Watching</p>
-                <h2>
-                  {roomMovieTitle} ({roomMovieYear})
-                </h2>
-              </div>
+                <svg viewBox="0 0 612 408" className="network-overlay" preserveAspectRatio="xMidYMid meet">
+                  <g className="network-links">
+                    <path d="M105 145C165 130 234 132 286 145" />
+                    <path d="M105 145C130 185 154 225 176 255" />
+                    <path d="M176 255C222 238 267 223 308 212" />
+                    <path d="M286 145C300 168 304 188 308 212" />
+                    <path d="M286 145C324 152 343 170 356 190" />
+                    <path d="M356 190C377 194 388 197 392 206" />
+                    <path d="M392 206C420 196 436 185 448 170" />
+                    <path d="M448 170C469 164 486 161 500 165" />
+                    <path d="M448 170C461 188 472 206 476 226" />
+                    <path d="M476 226C496 248 516 270 532 294" />
+                    <path d="M308 212C314 244 319 266 327 286" />
+                    <path d="M176 255C236 240 312 223 392 206" />
+                    <path d="M286 145C340 135 401 135 500 165" />
+                    <path d="M105 145C234 110 372 108 500 165" />
+                    <path d="M105 145C255 122 397 124 532 294" />
+                    <path d="M176 255C264 262 392 275 532 294" />
+                  </g>
 
-              <div>
-                <p className="label">Platform</p>
-                <h2>{roomPlatform}</h2>
+                  <g className="network-nodes">
+                    <circle cx="105" cy="145" r="3.6" />
+                    <circle cx="176" cy="255" r="3.4" />
+                    <circle cx="286" cy="145" r="3.4" />
+                    <circle cx="308" cy="212" r="3.2" />
+                    <circle cx="327" cy="286" r="3.2" />
+                    <circle cx="356" cy="190" r="3.0" />
+                    <circle cx="392" cy="206" r="3.2" />
+                    <circle cx="448" cy="170" r="3.2" />
+                    <circle cx="500" cy="165" r="3.0" />
+                    <circle cx="476" cy="226" r="3.0" />
+                    <circle cx="532" cy="294" r="3.4" />
+                  </g>
+                </svg>
               </div>
-
-              <div className="room-actions">
-                <button className="secondary-button" onClick={copyInvite}>
-                  Copy Invite
-                </button>
-
-                <button className="danger-button" onClick={leaveRoom}>
-                  Leave Room
-                </button>
-              </div>
+              <div className="hero-overlay" />
             </div>
 
-            {message && (
-              <p className={message.includes("copied") ? "success" : "error"}>
-                {message}
+            <div className="hero-copy hero-copy-centered">
+              <p className="eyebrow">REAL-TIME WATCH PARTIES</p>
+              <h1>Your movie night, perfectly in sync.</h1>
+              <p className="hero-description">
+                Create a private room to watch together with friends, family, or
+                someone far away. Share one synchronized timeline, chat live, and
+                make distance feel smaller.
               </p>
-            )}
-          </section>
 
-          <section className="panel control-panel">
-            <div>
-              <p className="label">Your status</p>
-              <h3>{ready ? "Ready" : "Not ready"}</h3>
-            </div>
-
-            <div>
-              <p className="label">Everyone ready</p>
-              <h3>{everyoneReady ? "Yes" : "No"}</h3>
-            </div>
-
-            <div>
-              <p className="label">People in room</p>
-              <h3>{roomUsers.length}</h3>
-            </div>
-
-            <div className="control-buttons">
-              <button className="secondary-button" onClick={toggleReady}>
-                {ready ? "Cancel Ready" : "Ready"}
-              </button>
-
-              <button className="primary-button" onClick={startTogether}>
-                Start Together
-              </button>
             </div>
           </section>
 
-          <main className="watch-layout">
-            <section className="video-card">
-              <div className="video-wrapper">
+          <section className="setup-card">
+            <div className="setup-heading">
+              <div>
+                <p className="section-kicker">START WATCHING</p>
+                <h2>{roomMode === "create" ? "Create a room" : "Join a room"}</h2>
+              </div>
+              <div className="mode-switch" role="tablist">
+                <button
+                  type="button"
+                  className={roomMode === "create" ? "active" : ""}
+                  onClick={() => {
+                    setRoomMode("create");
+                    clearNotice();
+                  }}
+                  disabled={pending}
+                >
+                  Create
+                </button>
+                <button
+                  type="button"
+                  className={roomMode === "join" ? "active" : ""}
+                  onClick={() => {
+                    setRoomMode("join");
+                    clearNotice();
+                  }}
+                  disabled={pending}
+                >
+                  Join
+                </button>
+              </div>
+            </div>
+
+            <div className="form-stack">
+              <label className="floating-field">
+                <input
+                  value={name}
+                  maxLength={30}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder=" "
+                  autoComplete="name"
+                  disabled={pending}
+                />
+                <span className="floating-label">Name</span>
+              </label>
+
+              <div className="floating-field-with-action">
+                <label className="floating-field">
+                  <input
+                    value={roomId}
+                    maxLength={40}
+                    onChange={(event) => setRoomId(event.target.value)}
+                    placeholder=" "
+                    disabled={pending}
+                  />
+                  <span className="floating-label">Room code</span>
+                </label>
+                {roomMode === "create" && (
+                  <button
+                    type="button"
+                    className="input-action"
+                    onClick={() => setRoomId(createRoomCode())}
+                    disabled={pending}
+                  >
+                    Generate
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="primary-cta"
+                onClick={roomMode === "create" ? createRoom : joinExistingRoom}
+                disabled={pending}
+              >
+                {pending
+                  ? roomMode === "create"
+                    ? "Creating room…"
+                    : "Joining room…"
+                  : roomMode === "create"
+                    ? "Create private room"
+                    : "Join room"}
+              </button>
+            </div>
+
+            {notice.text && <div className={`notice ${notice.type}`}>{notice.text}</div>}
+
+            <p className="setup-footnote">
+              Create a room, share the code, and bring everyone into one synchronized
+              watch party. TogetherScreen is designed for simple, private, and
+              long-distance movie nights.
+            </p>
+          </section>
+
+          <section className="landing-explain">
+            <div className="section-heading">
+              <p className="section-kicker">WHY TOGETHERSCREEN</p>
+              <h2>One room. One timeline. Everyone together.</h2>
+            </div>
+
+            <div className="why-grid">
+              {WHY_FEATURES.map((feature) => (
+                <article className="why-card" key={feature.title}>
+                  <div className="why-card-copy">
+                    <h3>{feature.title}</h3>
+                    <p>{feature.description}</p>
+                  </div>
+                  <div className="why-card-icon" aria-hidden="true">
+                    <FeatureIcon type={feature.icon} />
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="landing-faq">
+            <div className="faq-heading">
+              <h2>Frequently Asked Questions</h2>
+            </div>
+
+            <div className="faq-list">
+              {FAQ_ITEMS.map((item) => (
+                <details className="faq-item" key={item.question}>
+                  <summary>
+                    <span>{item.question}</span>
+                    <span className="faq-symbol" aria-hidden="true">+</span>
+                  </summary>
+                  <div className="faq-answer">
+                    <p>{item.answer}</p>
+                  </div>
+                </details>
+              ))}
+            </div>
+          </section>
+        </main>
+      ) : (
+        <main className="room-page">
+          <section className="room-hero">
+            <div className="room-title-block">
+              <div className="live-pill">
+                <span /> LIVE WATCH PARTY
+              </div>
+              <h1>{roomMovieTitle}</h1>
+              <p>Hosted by {hostUser?.name || "—"}</p>
+            </div>
+
+            <div className="room-top-actions">
+              <button type="button" className="room-code" onClick={copyRoomCode}>
+                <small>ROOM CODE</small>
+                <strong>{joinedRoom}</strong>
+                <span>Copy</span>
+              </button>
+              <button type="button" className="button ghost" onClick={copyInvite}>
+                Invite
+              </button>
+              {isHost ? (
+                <button type="button" className="button danger" onClick={endRoom}>
+                  End room
+                </button>
+              ) : (
+                <button type="button" className="button ghost" onClick={leaveRoom}>
+                  Leave
+                </button>
+              )}
+            </div>
+          </section>
+
+          <section className="status-grid" aria-label="Room status">
+            <article>
+              <span className="status-icon">●</span>
+              <div>
+                <small>CONNECTED</small>
+                <strong>{connectedUsers.length} viewers</strong>
+              </div>
+            </article>
+            <article>
+              <span className="status-icon">✓</span>
+              <div>
+                <small>READY</small>
+                <strong>
+                  {readyCount}/{connectedUsers.length}
+                </strong>
+              </div>
+            </article>
+            <article>
+              <span className="status-icon">◆</span>
+              <div>
+                <small>YOUR ROLE</small>
+                <strong>{isHost ? "Host" : "Viewer"}</strong>
+              </div>
+            </article>
+            <article>
+              <span className="status-icon">↻</span>
+              <div>
+                <small>SYNC STATUS</small>
+                <strong>{connected ? "Live" : "Reconnecting"}</strong>
+              </div>
+            </article>
+          </section>
+
+          {notice.text && (
+            <div className={`notice room-notice ${notice.type || "error"}`} role="status">
+              {notice.text}
+            </div>
+          )}
+
+          <section className="watch-grid">
+            <div className="player-column">
+              <div className="video-shell">
                 <video
                   ref={videoRef}
-                  controls
+                  controls={isHost}
+                  playsInline
+                  preload="metadata"
                   onPlay={() => sendVideoEvent("play")}
                   onPause={() => sendVideoEvent("pause")}
                   onSeeked={() => sendVideoEvent("seek")}
                 >
-                  <source
-                    src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
-                    type="video/mp4"
-                  />
+                  <source src={DEMO_VIDEO_URL} type="video/mp4" />
                 </video>
 
-                {countdown !== null && (
-                  <div className="countdown-overlay">{countdown}</div>
-                )}
-              </div>
+                <div className="video-top-overlay">
+                  <span className="sync-badge">SYNCHRONIZED</span>
+                  <span>{isHost ? "Host controls" : "Following host"}</span>
+                </div>
 
-              <p className="last-event">Last event: {lastEvent}</p>
-            </section>
-
-            <aside className="chat-card">
-              <div className="chat-header">
-                <p className="label">Room members</p>
-                <h2>Chat</h2>
-              </div>
-
-              <div className="member-list">
-                {roomUsers.map((user) => (
-                  <div className="member" key={user.socketId}>
-                    <span>{user.name}</span>
-                    <span
-                      className={user.ready ? "ready-pill" : "not-ready-pill"}
-                    >
-                      {user.ready ? "Ready" : "Not ready"}
-                    </span>
+                {!isHost && !autoplayBlocked && (
+                  <div className="viewer-overlay">
+                    <span>Playback is controlled by {hostUser?.name || "the host"}</span>
                   </div>
-                ))}
-              </div>
+                )}
 
-              <div className="chat-messages">
-                {chatMessages.length === 0 ? (
-                  <p className="muted">No messages yet.</p>
-                ) : (
-                  chatMessages.map((chatMessage, index) => {
-                    const isMine = chatMessage.senderName === name;
+                {autoplayBlocked && (
+                  <div className="playback-permission">
+                    <p>Your browser needs permission to play synchronized video.</p>
+                    <button type="button" onClick={enablePlayback}>
+                      Enable playback
+                    </button>
+                  </div>
+                )}
 
-                    return (
-                      <div
-                        className={
-                          isMine ? "message-row mine" : "message-row theirs"
-                        }
-                        key={index}
-                      >
-                        <div className="message-bubble">
-                          <p className="message-sender">
-                            {chatMessage.senderName}
-                          </p>
-                          <p className="message-text">{chatMessage.message}</p>
-                        </div>
-                      </div>
-                    );
-                  })
+                {countdown !== null && (
+                  <div className="countdown-overlay">
+                    <span>{countdown}</span>
+                  </div>
                 )}
               </div>
 
-              <div className="chat-input-row">
-                <input
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      sendChatMessage();
-                    }
-                  }}
-                  placeholder="Type a message..."
-                />
+              <div className="player-control-card">
+                <div className="playback-copy">
+                  <small>NOW PLAYING</small>
+                  <strong>{roomMovieTitle}</strong>
+                  <span>{lastEvent}</span>
+                </div>
 
-                <button className="primary-button" onClick={sendChatMessage}>
-                  Send
-                </button>
+                <div className="playback-actions">
+                  <button
+                    type="button"
+                    className={`button ${ready ? "ready-active" : "secondary"}`}
+                    onClick={toggleReady}
+                  >
+                    {ready ? "Ready ✓" : "I’m ready"}
+                  </button>
+
+                  {isHost && (
+                    <button
+                      type="button"
+                      className="button primary"
+                      onClick={startTogether}
+                      disabled={!everyoneReady}
+                      title={
+                        everyoneReady
+                          ? "Start synchronized playback"
+                          : "At least two connected viewers must be ready"
+                      }
+                    >
+                      Start together
+                    </button>
+                  )}
+                </div>
               </div>
-            </aside>
-          </main>
-        </>
-      )}
 
-      <div className="server-status-small">
-        <span className={connected ? "dot connected" : "dot disconnected"} />
-      </div>
+              {!everyoneReady && (
+                <p className="readiness-note">
+                  {connectedUsers.length < 2
+                    ? "Invite one more person to begin."
+                    : `Waiting for ${connectedUsers.length - readyCount} viewer${
+                        connectedUsers.length - readyCount === 1 ? "" : "s"
+                      } to get ready.`}
+                </p>
+              )}
+            </div>
+
+            <aside className="social-panel">
+              <section className="members-section">
+                <div className="panel-heading">
+                  <div>
+                    <small>WATCHING NOW</small>
+                    <h2>Room members</h2>
+                  </div>
+                  <span className="member-count">{connectedUsers.length}</span>
+                </div>
+
+                <div className="member-list">
+                  {roomUsers.map((user) => (
+                    <div
+                      className={`member-row ${!user.connected ? "member-offline" : ""}`}
+                      key={user.participantId}
+                    >
+                      <div className="avatar">{getInitials(user.name)}</div>
+                      <div className="member-copy">
+                        <strong>
+                          {user.name}
+                          {user.participantId === participantId && " (You)"}
+                        </strong>
+                        <span>
+                          {user.isHost ? "Host" : user.connected ? "Viewer" : "Reconnecting"}
+                        </span>
+                      </div>
+
+                      <div className="member-actions">
+                        <span className={`ready-state ${user.ready ? "is-ready" : ""}`}>
+                          {user.ready ? "Ready" : "Not ready"}
+                        </span>
+                        {isHost &&
+                          !user.isHost &&
+                          user.connected &&
+                          user.participantId !== participantId && (
+                            <button
+                              type="button"
+                              className="promote-button"
+                              onClick={() => transferHost(user.participantId)}
+                            >
+                              Make host
+                            </button>
+                          )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="chat-section">
+                <div className="panel-heading chat-heading">
+                  <div>
+                    <small>LIVE CONVERSATION</small>
+                    <h2>Chat</h2>
+                  </div>
+                </div>
+
+                <div className="chat-messages" aria-live="polite">
+                  {chatMessages.length === 0 ? (
+                    <div className="empty-chat">
+                      <span>✦</span>
+                      <p>No messages yet. Say hello.</p>
+                    </div>
+                  ) : (
+                    chatMessages.map((chatMessage) => {
+                      if (chatMessage.type === "system") {
+                        return (
+                          <div className="system-message" key={chatMessage.id}>
+                            {chatMessage.message}
+                          </div>
+                        );
+                      }
+
+                      const isMine =
+                        chatMessage.senderParticipantId === participantId;
+
+                      return (
+                        <div
+                          className={`message-row ${isMine ? "mine" : "theirs"}`}
+                          key={chatMessage.id}
+                        >
+                          <div className="message-bubble">
+                            <div className="message-meta">
+                              <strong>{isMine ? "You" : chatMessage.senderName}</strong>
+                              <span>{formatMessageTime(chatMessage.sentAt)}</span>
+                            </div>
+                            <p>{chatMessage.message}</p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+
+                <div className="chat-input-row">
+                  <input
+                    value={chatInput}
+                    maxLength={500}
+                    onChange={(event) => setChatInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        sendChatMessage();
+                      }
+                    }}
+                    placeholder="Message the room"
+                    aria-label="Chat message"
+                  />
+                  <button
+                    type="button"
+                    onClick={sendChatMessage}
+                    disabled={!chatInput.trim()}
+                    aria-label="Send message"
+                  >
+                    Send
+                  </button>
+                </div>
+              </section>
+            </aside>
+          </section>
+        </main>
+      )}
     </div>
   );
 }
