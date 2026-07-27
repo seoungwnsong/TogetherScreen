@@ -1,280 +1,693 @@
+require("dotenv").config();
+
 const express = require("express");
 const http = require("http");
+const { randomUUID } = require("crypto");
 const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
 
+const PORT = Number(process.env.PORT) || 3001;
+const RECONNECT_GRACE_MS = 15_000;
+const MAX_CHAT_HISTORY = 100;
+const allowedOrigins = (process.env.CLIENT_URLS || "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
   },
 });
 
-// rooms structure:
-// {
-//   "room1": {
-//     users: {
-//       "socket-id": {
-//         name: "Seoungwan",
-//         ready: false
-//       }
-//     },
-//     movieTitle: "La La Land",
-//     movieYear: "2016",
-//     platform: "Netflix"
-//   }
-// }
-const rooms = {};
+const rooms = new Map();
+const ROOM_ID_PATTERN = /^[A-Za-z0-9_-]{3,40}$/;
+const PARTICIPANT_ID_PATTERN = /^[A-Za-z0-9_-]{10,100}$/;
+const VIDEO_EVENT_TYPES = new Set(["play", "pause", "seek"]);
 
-app.get("/", (req, res) => {
-  res.send("TogetherScreen server is running");
+app.get("/", (_request, response) => {
+  response.send("TogetherScreen server is running");
 });
 
-function getRoomUsers(roomId) {
-  if (!rooms[roomId]) {
-    return {};
-  }
+app.get("/health", (_request, response) => {
+  response.json({ ok: true, rooms: rooms.size });
+});
 
-  return rooms[roomId].users;
+function reply(callback, payload) {
+  if (typeof callback === "function") {
+    callback(payload);
+  }
+}
+
+function normalizeText(value, maxLength) {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, maxLength);
+}
+
+function normalizeRoomId(value) {
+  const roomId = normalizeText(value, 40);
+  return ROOM_ID_PATTERN.test(roomId) ? roomId : "";
+}
+
+function normalizeParticipantId(value) {
+  const participantId = normalizeText(value, 100);
+  return PARTICIPANT_ID_PATTERN.test(participantId) ? participantId : "";
+}
+
+function makeParticipantId() {
+  return randomUUID();
+}
+
+function isValidTime(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function getPlaybackSnapshot(room) {
+  const elapsedSeconds = room.playback.isPlaying
+    ? Math.max(0, Date.now() - room.playback.updatedAt) / 1000
+    : 0;
+
+  return {
+    currentTime: room.playback.currentTime + elapsedSeconds,
+    isPlaying: room.playback.isPlaying,
+    updatedAt: room.playback.updatedAt,
+  };
+}
+
+function makeMessage({ type = "user", participantId = null, name, message }) {
+  return {
+    id: randomUUID(),
+    type,
+    senderParticipantId: participantId,
+    senderName: name,
+    message,
+    sentAt: new Date().toISOString(),
+  };
+}
+
+function appendMessage(room, message) {
+  room.messages.push(message);
+  if (room.messages.length > MAX_CHAT_HISTORY) {
+    room.messages.splice(0, room.messages.length - MAX_CHAT_HISTORY);
+  }
+}
+
+function emitSystemMessage(roomId, message) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+
+  const chatMessage = makeMessage({
+    type: "system",
+    name: "TogetherScreen",
+    message,
+  });
+
+  appendMessage(room, chatMessage);
+  io.to(roomId).emit("chat-message", chatMessage);
+}
+
+function getRoomState(roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return null;
+
+  const users = Array.from(room.users.entries()).map(
+    ([participantId, user]) => ({
+      participantId,
+      name: user.name,
+      ready: user.ready,
+      connected: Boolean(user.socketId),
+      isHost: room.hostParticipantId === participantId,
+      joinedAt: user.joinedAt,
+    })
+  );
+
+  return {
+    roomId,
+    users,
+    connectedUserCount: users.filter((user) => user.connected).length,
+    movieTitle: room.movieTitle,
+    movieYear: room.movieYear,
+    platform: room.platform,
+    playback: getPlaybackSnapshot(room),
+    messages: room.messages,
+    createdAt: room.createdAt,
+  };
 }
 
 function sendRoomStatus(roomId) {
-  if (!rooms[roomId]) {
+  const status = getRoomState(roomId);
+  if (status) {
+    io.to(roomId).emit("room-status", status);
+  }
+}
+
+function pickNextHost(room) {
+  const connectedEntry = Array.from(room.users.entries()).find(
+    ([, user]) => user.socketId
+  );
+
+  if (connectedEntry) return connectedEntry[0];
+  return room.users.keys().next().value || null;
+}
+
+function permanentlyRemoveParticipant(roomId, participantId, reason = "left") {
+  const room = rooms.get(roomId);
+  if (!room) return;
+
+  const user = room.users.get(participantId);
+  if (!user) return;
+
+  if (user.disconnectTimer) {
+    clearTimeout(user.disconnectTimer);
+  }
+
+  const wasHost = room.hostParticipantId === participantId;
+  const departingName = user.name;
+  room.users.delete(participantId);
+
+  if (room.users.size === 0) {
+    rooms.delete(roomId);
     return;
   }
 
-  const users = getRoomUsers(roomId);
+  if (wasHost) {
+    room.hostParticipantId = pickNextHost(room);
+  }
 
-  const userList = Object.entries(users).map(([socketId, user]) => ({
-    socketId,
-    name: user.name,
-    ready: user.ready,
-  }));
-
-  console.log("Sending room-status:", roomId, userList);
-
-  io.to(roomId).emit("room-status", {
+  emitSystemMessage(
     roomId,
-    users: userList,
-    movieTitle: rooms[roomId].movieTitle,
-    movieYear: rooms[roomId].movieYear,
-    platform: rooms[roomId].platform,
-  });
-}
+    reason === "disconnected"
+      ? `${departingName} disconnected.`
+      : `${departingName} left the room.`
+  );
 
-function removeUserFromCurrentRoom(socket) {
-  const previousRoomId = socket.data.roomId;
-
-  if (!previousRoomId || !rooms[previousRoomId]) {
-    return;
+  if (wasHost && room.hostParticipantId) {
+    const newHost = room.users.get(room.hostParticipantId);
+    if (newHost) {
+      emitSystemMessage(roomId, `${newHost.name} is now the host.`);
+    }
   }
-
-  socket.leave(previousRoomId);
-  delete rooms[previousRoomId].users[socket.id];
-
-  if (Object.keys(rooms[previousRoomId].users).length === 0) {
-    delete rooms[previousRoomId];
-  } else {
-    sendRoomStatus(previousRoomId);
-  }
-
-  socket.data.roomId = null;
-  socket.data.name = null;
-}
-
-function addUserToRoom(socket, roomId, name) {
-  removeUserFromCurrentRoom(socket);
-
-  socket.join(roomId);
-  socket.data.roomId = roomId;
-  socket.data.name = name;
-
-  rooms[roomId].users[socket.id] = {
-    name,
-    ready: false,
-  };
-
-  console.log(`${name} (${socket.id}) joined room ${roomId}`);
 
   sendRoomStatus(roomId);
 }
 
+function removeSocketFromCurrentRoom(
+  socket,
+  { immediate = false, reason = "left" } = {}
+) {
+  const roomId = socket.data.roomId;
+  const participantId = socket.data.participantId;
+
+  if (!roomId || !participantId) return;
+
+  socket.leave(roomId);
+
+  const room = rooms.get(roomId);
+  const user = room?.users.get(participantId);
+
+  if (user && user.socketId === socket.id) {
+    user.socketId = null;
+
+    if (immediate) {
+      permanentlyRemoveParticipant(roomId, participantId, reason);
+    } else {
+      if (user.disconnectTimer) clearTimeout(user.disconnectTimer);
+
+      user.disconnectTimer = setTimeout(() => {
+        permanentlyRemoveParticipant(roomId, participantId, "disconnected");
+      }, RECONNECT_GRACE_MS);
+
+      sendRoomStatus(roomId);
+    }
+  }
+
+  socket.data.roomId = null;
+  socket.data.participantId = null;
+  socket.data.name = null;
+  socket.data.isExtension = false;
+}
+
+/**
+ * Two tabs can accidentally share the same browser-side participant ID.
+ * If that ID is already connected from another socket, assign a fresh one.
+ * This prevents a joining user from replacing the host and keeps the count correct.
+ */
+function resolveParticipantId(room, requestedParticipantId, socketId) {
+  const requested =
+    normalizeParticipantId(requestedParticipantId) || makeParticipantId();
+  const existing = room.users.get(requested);
+
+  if (!existing || existing.socketId === socketId || !existing.socketId) {
+    return requested;
+  }
+
+  return makeParticipantId();
+}
+
+function addUserToRoom(socket, roomId, requestedParticipantId, name) {
+  const room = rooms.get(roomId);
+  if (!room) return null;
+
+  if (socket.data.roomId && socket.data.roomId !== roomId) {
+    removeSocketFromCurrentRoom(socket, { immediate: true, reason: "left" });
+  }
+
+  const participantId = resolveParticipantId(
+    room,
+    requestedParticipantId,
+    socket.id
+  );
+
+  let user = room.users.get(participantId);
+  const isNewParticipant = !user;
+
+  if (user) {
+    if (user.disconnectTimer) clearTimeout(user.disconnectTimer);
+    user.socketId = socket.id;
+    user.name = name;
+    user.disconnectTimer = null;
+  } else {
+    user = {
+      socketId: socket.id,
+      name,
+      ready: false,
+      joinedAt: new Date().toISOString(),
+      disconnectTimer: null,
+    };
+    room.users.set(participantId, user);
+  }
+
+  socket.join(roomId);
+  socket.data.roomId = roomId;
+  socket.data.participantId = participantId;
+  socket.data.name = name;
+  socket.data.isExtension = false;
+
+  if (isNewParticipant && room.users.size > 1) {
+    emitSystemMessage(roomId, `${name} joined the room.`);
+  }
+
+  sendRoomStatus(roomId);
+
+  return {
+    participantId,
+    room: getRoomState(roomId),
+  };
+}
+
+function validateMembership(socket, roomId) {
+  const room = rooms.get(roomId);
+  const participantId = socket.data.participantId;
+  const user = participantId ? room?.users.get(participantId) : null;
+
+  return Boolean(
+    room &&
+      participantId &&
+      socket.data.roomId === roomId &&
+      user?.socketId === socket.id
+  );
+}
+
+function clearRoomTimers(room) {
+  for (const user of room.users.values()) {
+    if (user.disconnectTimer) clearTimeout(user.disconnectTimer);
+  }
+}
+
 io.on("connection", (socket) => {
-  console.log("A user connected:", socket.id);
-  
-  socket.on("extension-join-room", (event) => {
-    console.log("extension-join-room received:", event, "from", socket.id);
+  console.log("Connected:", socket.id);
 
-    const roomId = event.roomId;
-    const name = event.name || "Extension User";
+  socket.on("create-room", (event = {}, callback) => {
+    const roomId = normalizeRoomId(event.roomId);
+    const name = normalizeText(event.name, 30);
+    const movieTitle = normalizeText(event.movieTitle, 80) || "Private Watch Party";
+    const movieYear = normalizeText(event.movieYear, 12);
+    const platform = normalizeText(event.platform, 50);
 
-    if (!rooms[roomId]) {
-      socket.emit("extension-error", {
-        message: "Room does not exist. Create the room on the website first.",
+    if (!roomId) {
+      reply(callback, {
+        success: false,
+        message:
+          "Room ID must be 3–40 characters and use only letters, numbers, underscores, or hyphens.",
       });
       return;
     }
 
-    socket.join(roomId);
-    socket.data.roomId = roomId;
-    socket.data.name = name;
-    socket.data.isExtension = true;
+    if (!name) {
+      reply(callback, {
+        success: false,
+        message: "Enter your name before creating a room.",
+      });
+      return;
+    }
 
-    console.log(`Extension for ${name} joined room ${roomId}`);
-  });
-
-  socket.on("create-room", (event) => {
-    console.log("create-room received:", event, "from", socket.id);
-
-    const roomId = event.roomId;
-    const name = event.name || "Anonymous";
-    const movieTitle = event.movieTitle || "Untitled Movie";
-    const movieYear = event.movieYear || "Unknown Year";
-    const platform = event.platform || "Unknown Platform";
-
-    if (rooms[roomId]) {
-      socket.emit("room-error", {
+    if (rooms.has(roomId)) {
+      reply(callback, {
+        success: false,
         message: "This room already exists. Try joining it instead.",
       });
       return;
     }
 
-    rooms[roomId] = {
-      users: {},
+    const requestedParticipantId =
+      normalizeParticipantId(event.participantId) || makeParticipantId();
+
+    rooms.set(roomId, {
+      hostParticipantId: requestedParticipantId,
+      users: new Map(),
       movieTitle,
       movieYear,
       platform,
-    };
+      playback: {
+        currentTime: 0,
+        isPlaying: false,
+        updatedAt: Date.now(),
+      },
+      messages: [],
+      createdAt: new Date().toISOString(),
+    });
 
-    addUserToRoom(socket, roomId, name);
+    const result = addUserToRoom(
+      socket,
+      roomId,
+      requestedParticipantId,
+      name
+    );
+
+    // addUserToRoom can only reassign an ID on a collision. A brand-new room
+    // cannot collide, but assigning this explicitly keeps the invariant clear.
+    rooms.get(roomId).hostParticipantId = result.participantId;
+    sendRoomStatus(roomId);
+
+    reply(callback, {
+      success: true,
+      participantId: result.participantId,
+      room: getRoomState(roomId),
+    });
   });
 
-  socket.on("join-room", (event) => {
-    console.log("join-room received:", event, "from", socket.id);
+  function joinRoom(event = {}, callback) {
+    const roomId = normalizeRoomId(event.roomId);
+    const name = normalizeText(event.name, 30);
 
-    const roomId = event.roomId;
-    const name = event.name || "Anonymous";
+    if (!roomId || !name) {
+      reply(callback, {
+        success: false,
+        message: "Enter a valid room ID and name.",
+      });
+      return;
+    }
 
-    if (!rooms[roomId]) {
-      socket.emit("room-error", {
+    if (!rooms.has(roomId)) {
+      reply(callback, {
+        success: false,
         message: "Room does not exist. Ask the host to create it first.",
       });
       return;
     }
 
-    addUserToRoom(socket, roomId, name);
-  });
-
-  socket.on("ready-change", (event) => {
-    console.log("ready-change received:", event, "from", socket.id);
-
-    const { roomId, ready } = event;
-
-    if (!rooms[roomId]) {
-      console.log("ready-change ignored: room does not exist");
-      return;
-    }
-
-    if (!rooms[roomId].users[socket.id]) {
-      console.log("ready-change ignored: user is not in this room");
-      return;
-    }
-
-    rooms[roomId].users[socket.id].ready = ready;
-
-    console.log(
-      `${rooms[roomId].users[socket.id].name} ready in ${roomId}: ${ready}`
+    const result = addUserToRoom(
+      socket,
+      roomId,
+      event.participantId,
+      name
     );
 
+    reply(callback, {
+      success: true,
+      participantId: result.participantId,
+      room: result.room,
+    });
+  }
+
+  socket.on("join-room", joinRoom);
+  socket.on("rejoin-room", joinRoom);
+
+  socket.on("ready-change", (event = {}, callback) => {
+    const roomId = normalizeRoomId(event.roomId);
+
+    if (
+      !roomId ||
+      typeof event.ready !== "boolean" ||
+      !validateMembership(socket, roomId)
+    ) {
+      reply(callback, { success: false });
+      return;
+    }
+
+    const room = rooms.get(roomId);
+    room.users.get(socket.data.participantId).ready = event.ready;
     sendRoomStatus(roomId);
+    reply(callback, { success: true });
   });
 
-  socket.on("start-together", (event) => {
-    console.log("start-together received:", event, "from", socket.id);
+  socket.on("start-together", (event = {}, callback) => {
+    const roomId = normalizeRoomId(event.roomId);
+    const time = event.time;
 
-    const { roomId, time } = event;
-
-    const users = getRoomUsers(roomId);
-    const userList = Object.values(users);
-
-    if (userList.length < 2) {
-      socket.emit("start-error", {
-        message: "You need at least 2 people in the room to start together.",
+    if (!roomId || !validateMembership(socket, roomId)) {
+      reply(callback, {
+        success: false,
+        message: "You are not a member of this room.",
       });
       return;
     }
 
-    const everyoneReady = userList.every((user) => user.ready);
+    const room = rooms.get(roomId);
 
-    if (!everyoneReady) {
-      socket.emit("start-error", {
+    if (room.hostParticipantId !== socket.data.participantId) {
+      reply(callback, {
+        success: false,
+        message: "Only the host can start playback.",
+      });
+      return;
+    }
+
+    if (!isValidTime(time)) {
+      reply(callback, {
+        success: false,
+        message: "The playback time is invalid.",
+      });
+      return;
+    }
+
+    const connectedUsers = Array.from(room.users.values()).filter(
+      (user) => user.socketId
+    );
+
+    if (connectedUsers.length < 2) {
+      reply(callback, {
+        success: false,
+        message: "You need at least two connected people in the room.",
+      });
+      return;
+    }
+
+    if (!connectedUsers.every((user) => user.ready)) {
+      reply(callback, {
+        success: false,
         message: "Not everyone is ready yet.",
       });
       return;
     }
 
-    console.log(`Starting room ${roomId} together`);
+    const startAt = Date.now() + 3000;
+
+    room.playback = {
+      currentTime: time,
+      isPlaying: true,
+      updatedAt: startAt,
+    };
 
     io.to(roomId).emit("start-together", {
       roomId,
+      videoTime: time,
+      startAt,
+    });
+
+    reply(callback, { success: true, startAt });
+  });
+
+  socket.on("video-event", (event = {}) => {
+    const roomId = normalizeRoomId(event.roomId);
+    const { type, time } = event;
+
+    if (
+      !roomId ||
+      !VIDEO_EVENT_TYPES.has(type) ||
+      !isValidTime(time) ||
+      !validateMembership(socket, roomId)
+    ) {
+      return;
+    }
+
+    const room = rooms.get(roomId);
+    if (room.hostParticipantId !== socket.data.participantId) return;
+
+    room.playback = {
+      currentTime: time,
+      isPlaying:
+        type === "play"
+          ? true
+          : type === "pause"
+            ? false
+            : Boolean(event.isPlaying),
+      updatedAt: Date.now(),
+    };
+
+    socket.to(roomId).emit("video-event", {
+      type,
       time,
+      isPlaying: room.playback.isPlaying,
     });
   });
 
-  socket.on("video-event", (event) => {
-    console.log("video-event received:", event, "from", socket.id);
+  socket.on("sync-state", (event = {}) => {
+    const roomId = normalizeRoomId(event.roomId);
+    const time = event.time;
 
-    const { roomId } = event;
-
-    if (socket.data.roomId !== roomId) {
-      console.log("video-event ignored: user is not in this room");
+    if (
+      !roomId ||
+      !isValidTime(time) ||
+      typeof event.isPlaying !== "boolean" ||
+      !validateMembership(socket, roomId)
+    ) {
       return;
     }
 
-    socket.to(roomId).emit("video-event", event);
-  });
+    const room = rooms.get(roomId);
+    if (room.hostParticipantId !== socket.data.participantId) return;
 
-  socket.on("chat-message", (event) => {
-    console.log("chat-message received:", event, "from", socket.id);
-
-    const { roomId, message } = event;
-
-    if (socket.data.roomId !== roomId) {
-      console.log("chat-message ignored: user is not in this room");
-      return;
-    }
-
-    const trimmedMessage = message.trim();
-
-    if (trimmedMessage === "") {
-      console.log("chat-message ignored: empty message");
-      return;
-    }
-
-    const chatMessage = {
-      senderId: socket.id,
-      senderName: socket.data.name || "Anonymous",
-      message: trimmedMessage,
-      sentAt: new Date().toLocaleTimeString(),
+    room.playback = {
+      currentTime: time,
+      isPlaying: event.isPlaying,
+      updatedAt: Date.now(),
     };
 
-    console.log("Broadcasting chat-message:", chatMessage);
-
-    io.to(roomId).emit("chat-message", chatMessage);
+    socket.to(roomId).emit("sync-state", {
+      time,
+      isPlaying: event.isPlaying,
+    });
   });
 
-  socket.on("leave-room", () => {
-    console.log("leave-room received from", socket.id);
-    removeUserFromCurrentRoom(socket);
+  socket.on("chat-message", (event = {}, callback) => {
+    const roomId = normalizeRoomId(event.roomId);
+    const message = normalizeText(event.message, 500);
+
+    if (!roomId || !message || !validateMembership(socket, roomId)) {
+      reply(callback, { success: false });
+      return;
+    }
+
+    const room = rooms.get(roomId);
+    const chatMessage = makeMessage({
+      participantId: socket.data.participantId,
+      name: socket.data.name || "Anonymous",
+      message,
+    });
+
+    appendMessage(room, chatMessage);
+    io.to(roomId).emit("chat-message", chatMessage);
+    reply(callback, { success: true });
+  });
+
+  socket.on("transfer-host", (event = {}, callback) => {
+    const roomId = normalizeRoomId(event.roomId);
+    const targetParticipantId = normalizeParticipantId(
+      event.targetParticipantId
+    );
+
+    if (!roomId || !validateMembership(socket, roomId)) {
+      reply(callback, { success: false, message: "Invalid room membership." });
+      return;
+    }
+
+    const room = rooms.get(roomId);
+
+    if (room.hostParticipantId !== socket.data.participantId) {
+      reply(callback, {
+        success: false,
+        message: "Only the host can transfer host controls.",
+      });
+      return;
+    }
+
+    const target = room.users.get(targetParticipantId);
+    if (!target || !target.socketId) {
+      reply(callback, {
+        success: false,
+        message: "Choose a connected participant.",
+      });
+      return;
+    }
+
+    room.hostParticipantId = targetParticipantId;
+    emitSystemMessage(roomId, `${target.name} is now the host.`);
+    sendRoomStatus(roomId);
+    reply(callback, { success: true });
+  });
+
+  socket.on("end-room", (event = {}, callback) => {
+    const roomId = normalizeRoomId(event.roomId);
+
+    if (!roomId || !validateMembership(socket, roomId)) {
+      reply(callback, { success: false, message: "Invalid room membership." });
+      return;
+    }
+
+    const room = rooms.get(roomId);
+    if (room.hostParticipantId !== socket.data.participantId) {
+      reply(callback, {
+        success: false,
+        message: "Only the host can end the room.",
+      });
+      return;
+    }
+
+    clearRoomTimers(room);
+    io.to(roomId).emit("room-closed", {
+      message: `${socket.data.name || "The host"} ended the room.`,
+    });
+    io.in(roomId).socketsLeave(roomId);
+    rooms.delete(roomId);
+    reply(callback, { success: true });
+  });
+
+  socket.on("extension-join-room", (event = {}, callback) => {
+    const roomId = normalizeRoomId(event.roomId);
+
+    if (!roomId || !rooms.has(roomId)) {
+      reply(callback, {
+        success: false,
+        message: "Room does not exist. Create it on the website first.",
+      });
+      return;
+    }
+
+    removeSocketFromCurrentRoom(socket, { immediate: true });
+    socket.join(roomId);
+    socket.data.roomId = roomId;
+    socket.data.name = normalizeText(event.name, 30) || "Extension";
+    socket.data.isExtension = true;
+
+    reply(callback, { success: true, room: getRoomState(roomId) });
+  });
+
+  socket.on("leave-room", (_event, callback) => {
+    removeSocketFromCurrentRoom(socket, { immediate: true, reason: "left" });
+    reply(callback, { success: true });
   });
 
   socket.on("disconnect", () => {
-    console.log("A user disconnected:", socket.id);
-    removeUserFromCurrentRoom(socket);
+    console.log("Disconnected:", socket.id);
+    removeSocketFromCurrentRoom(socket, { immediate: false });
   });
 });
 
-server.listen(3001, () => {
-  console.log("Server running on http://localhost:3001");
+server.listen(PORT, () => {
+  console.log(`TogetherScreen server running on port ${PORT}`);
+  console.log(`Allowed client origins: ${allowedOrigins.join(", ")}`);
 });
