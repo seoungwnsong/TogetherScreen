@@ -1,142 +1,182 @@
 # TogetherScreen
 
-TogetherScreen is a real-time watch-party project that synchronizes HTML5 video playback across different browsers. It includes a React website, a Chrome extension, and a Node.js/Socket.IO backend.
+TogetherScreen is a web app and Chrome extension that allows people to watch videos together while staying on the same timeline.
+
+I originally started this project because I wanted a simple way to watch videos with my girlfriend while we were in different countries. With TogetherScreen, users can create a private room, join using the same room code, and synchronize their videos in real time.
 
 ## Features
 
-- Private room creation and joining
-- Host and viewer roles
-- Ready checks and synchronized countdowns
-- Play, pause, seek, and playback drift correction
-- YouTube and standard HTML5 video detection through the Chrome extension
-- Live participant status and chat in the web app
-- Reconnection and host transfer
+- Create and join private rooms
+- Detect YouTube and standard HTML5 videos
+- Start videos together with a synchronized countdown
+- Synchronize play, pause, and seek
+- Show host, viewer, and ready status
+- Automatically transfer the host when the current host leaves
+- Correct playback differences between users
+- Reconnect users after refreshing the page
 
-## Project structure
+## How It Works
+
+When the host plays, pauses, or changes the video timeline, the Chrome extension detects the action and sends it to the TogetherScreen server.
+
+The server then sends the update to everyone else in the same room.
 
 ```text
-TogetherScreen/
-├── .github/workflows/ci.yml
-├── docs/
-│   ├── ARCHITECTURE.md
-│   └── TESTING.md
-├── extension/
-│   ├── icons/
-│   ├── scripts/vendor-socketio.mjs
-│   ├── background.js
-│   ├── config.js
-│   ├── content.js
-│   ├── manifest.json
-│   ├── popup.css
-│   ├── popup.html
-│   └── popup.js
-├── server/
-│   ├── .env.example
-│   ├── index.js
-│   └── package.json
-├── web/
-│   ├── public/extension-test.html
-│   ├── src/
-│   ├── .env.example
-│   ├── index.html
-│   ├── package.json
-│   ├── vercel.json
-│   └── vite.config.js
-├── .gitignore
-├── package.json
-└── render.yaml
+Host's video
+     ↓
+Chrome extension
+     ↓
+Socket.IO server
+     ↓
+Other participants
+     ↓
+Their videos update
 ```
 
-## Local development
+Socket.IO is used to maintain real-time communication between the users and the server.
+
+## Technologies Used
+
+- React
+- Vite
+- JavaScript
+- Node.js
+- Express
+- Socket.IO
+- Chrome Extension Manifest V3
+
+## Running the Project Locally
 
 ### Requirements
 
-- Node.js 20 or newer
+- Node.js
 - npm
 - Google Chrome
 
-### Install
+### Install Dependencies
 
-From the repository root:
+From the main project folder, run:
 
 ```bash
 npm install
 npm run setup:extension
 ```
 
-The second command copies the installed Socket.IO browser client into the extension folder.
+The second command adds the Socket.IO browser client to the Chrome extension.
 
-### Run the backend
+### Start the Backend
 
 ```bash
 npm run dev:server
 ```
 
-The server runs at `http://localhost:3001`.
+The backend will run at:
 
-### Run the website
+```text
+http://localhost:3001
+```
 
-In another terminal:
+### Start the Website
+
+Open another terminal and run:
 
 ```bash
 npm run dev:web
 ```
 
-The website runs at `http://localhost:5173`.
-
-### Load the Chrome extension
-
-1. Open `chrome://extensions`.
-2. Enable **Developer mode**.
-3. Select **Load unpacked**.
-4. Choose the repository's `extension` folder.
-5. Open a YouTube page or `http://localhost:5173/extension-test.html`.
-
-## Environment configuration
-
-Copy the example files when local overrides are needed:
-
-```bash
-cp server/.env.example server/.env
-cp web/.env.example web/.env
-```
-
-Do not commit `.env` files.
-
-## Deploy the backend to Render
-
-The included `render.yaml` can create the backend as a Render Blueprint.
-
-After Render provides the public service address, update `extension/config.js`:
-
-```js
-SERVER_URL: "https://YOUR-SERVICE.onrender.com"
-```
-
-Reload the extension on both computers after changing the address.
-
-The backend health check is:
+The website will run at:
 
 ```text
-https://YOUR-SERVICE.onrender.com/health
+http://localhost:5173
 ```
 
-## Deploy the website
+## Loading the Chrome Extension
 
-The `web` folder is ready for a Vite deployment. Set this environment variable on the hosting platform:
+1. Open Chrome.
+2. Go to `chrome://extensions`.
+3. Enable **Developer mode**.
+4. Click **Load unpacked**.
+5. Select the `extension` folder.
+6. Open a YouTube video.
+7. Open the TogetherScreen extension.
 
-```text
-VITE_SERVER_URL=https://YOUR-SERVICE.onrender.com
-```
-
-Then add the deployed website origin to the server's `CLIENT_URLS` environment variable.
+For testing with two users, use two separate Chrome profiles and load the extension in both profiles.
 
 ## Testing
 
-See [`docs/TESTING.md`](docs/TESTING.md) for the two-profile and two-computer test checklist.
+### Create a Room
 
-## Current limitations
+1. Open a YouTube video.
+2. Open the extension.
+3. Enter your name.
+4. Create a room.
+5. Copy the room code.
 
-- Room state is kept in server memory and resets when the backend restarts.
-- The extension targets visible HTML5 video elements; some protected streaming platforms may need platform-specific support.
-- A participant currently leaves the room to stop syncing. Independent watch mode is planned as the next feature.
+### Join a Room
+
+1. Open another Chrome profile.
+2. Open the same YouTube video.
+3. Open the extension.
+4. Enter another name.
+5. Join using the same room code.
+
+### Start Together
+
+1. Both users click **Ready**.
+2. The host clicks **Start Together**.
+3. Both videos begin after the synchronized countdown.
+
+The host can then control:
+
+- Play
+- Pause
+- Seek
+- Synchronized playback
+
+## Environment Variables
+
+The local backend can use a `server/.env` file:
+
+```env
+PORT=3001
+CLIENT_URLS=http://localhost:5173
+```
+
+The website can use a `web/.env` file:
+
+```env
+VITE_SERVER_URL=http://localhost:3001
+```
+
+Do not upload `.env` files to GitHub.
+
+Use `.env.example` files to show which environment variables are required without exposing private information.
+
+## Deployment
+
+The backend can be deployed using Render.
+
+After deployment, update the server address inside:
+
+```text
+extension/config.js
+```
+
+Change:
+
+```js
+SERVER_URL: "http://localhost:3001"
+```
+
+to the deployed backend address:
+
+```js
+SERVER_URL: "https://your-server-address.onrender.com"
+```
+
+Reload the extension after changing the server address.
+
+
+## Author
+
+Created by Seoungwan Song.
