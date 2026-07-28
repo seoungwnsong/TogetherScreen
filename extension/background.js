@@ -321,19 +321,52 @@ async function refreshVideo(tabId) {
 }
 
 function connectSocket() {
-  if (socket || typeof io !== "function") return;
+  if (typeof io !== "function") {
+    state.connected = false;
+    state.connecting = false;
+    state.error = "The Socket.IO client failed to load.";
+    return;
+  }
+
+  // Keep the current connection when it is already working.
+  if (socket?.connected || state.connecting) {
+    return;
+  }
+
+  // Remove a previous failed or disconnected socket.
+  if (socket) {
+    socket.removeAllListeners();
+    socket.disconnect();
+    socket = null;
+  }
 
   state.connecting = true;
+  state.error = "";
+
   socket = io(CONFIG.SERVER_URL, {
+    path: "/socket.io/",
     autoConnect: true,
+    forceNew: true,
+
     reconnection: true,
     reconnectionAttempts: Infinity,
-    reconnectionDelay: 500,
-    reconnectionDelayMax: 3000,
-    transports: ["websocket", "polling"],
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+
+    timeout: 90000,
+
+    // Required for the Manifest V3 service worker.
+    transports: ["websocket"],
+    upgrade: false,
   });
 
   socket.on("connect", async () => {
+    console.log("SOCKET.IO CONNECTED", {
+      socketId: socket.id,
+      serverUrl: CONFIG.SERVER_URL,
+      transport: socket.io.engine.transport.name,
+    });
+
     state.connected = true;
     state.connecting = false;
     state.error = "";
@@ -352,7 +385,8 @@ function connectSocket() {
       );
 
       if (!response?.success) {
-        state.error = response?.message || "Could not restore the previous room.";
+        state.error =
+          response?.message || "Could not restore the previous room.";
         await clearSession();
       }
     }
@@ -366,6 +400,14 @@ function connectSocket() {
   });
 
   socket.on("connect_error", (error) => {
+    console.error("SOCKET.IO CONNECTION ERROR", {
+      serverUrl: CONFIG.SERVER_URL,
+      message: error?.message,
+      description: error?.description,
+      type: error?.type,
+      context: error?.context,
+    });
+
     state.connected = false;
     state.connecting = false;
     state.error = error?.message || "Could not connect to the server.";
@@ -384,8 +426,21 @@ function connectSocket() {
   });
 
   socket.on("video-event", async (event) => {
+    console.log("RECEIVED VIDEO EVENT FROM SERVER", {
+      event,
+      controlledTabId: state.controlledTabId,
+      joined: state.joined,
+      roomId: state.roomId,
+    });
+
     state.lastEvent = `Received ${event.type} at ${Number(event.time).toFixed(1)}s`;
-    await sendToControlledTab({ type: "TS_APPLY_VIDEO_EVENT", event });
+
+    const result = await sendToControlledTab({
+      type: "TS_APPLY_VIDEO_EVENT",
+      event,
+    });
+
+    console.log("SENT EVENT TO VIDEO TAB", result);
   });
 
   socket.on("sync-state", async (event) => {
@@ -452,6 +507,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return { success: true };
 
       case "TS_LOCAL_VIDEO_EVENT": {
+        console.log("TS_LOCAL_VIDEO_EVENT DEBUG", {
+          senderTabId: sender.tab?.id,
+          controlledTabId: state.controlledTabId,
+          joined: state.joined,
+          participantId: state.participantId,
+          isHost: currentUser()?.isHost,
+          socketConnected: socket?.connected,
+          roomId: state.roomId,
+          event: message.event,
+        });
+
         if (
           sender.tab?.id === state.controlledTabId &&
           state.joined &&
@@ -459,14 +525,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           socket?.connected
         ) {
           const event = message.event || {};
+
+          console.log("SENDING VIDEO EVENT TO SERVER", {
+            roomId: state.roomId,
+            type: event.type,
+            time: Number(event.time) || 0,
+            isPlaying: Boolean(event.isPlaying),
+          });
+
           socket.emit("video-event", {
             roomId: state.roomId,
             type: event.type,
             time: Number(event.time) || 0,
             isPlaying: Boolean(event.isPlaying),
           });
+
           state.lastEvent = `${event.type} at ${Number(event.time).toFixed(1)}s`;
+        } else {
+          console.warn("VIDEO EVENT BLOCKED");
         }
+
         return { success: true };
       }
 
