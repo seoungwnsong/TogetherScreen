@@ -1,13 +1,13 @@
 # TogetherScreen
 
-TogetherScreen is a web app and Chrome extension that allows people to watch videos together while staying on the same timeline.
+It is a web app and Chrome extension that allows people to watch videos together while staying on the same timeline.
 
-I originally started this project because I wanted a simple way to watch videos with my girlfriend while we were in different countries. With TogetherScreen, users can create a private room, join using the same room code, and synchronize their videos in real time.
+I originally started this project because I wanted a simple way to watch movies with my girlfriend while we were in different countries. With TogetherScreen, users can create a private room, join using the same room code, and synchronize their videos in real time.
 
 ## Features
 
 - Create and join private rooms
-- Detect YouTube and standard HTML5 videos
+- Detect standard HTML5 videos including Youtube.
 - Start videos together with a synchronized countdown
 - Synchronize play, pause, and seek
 - Show host, viewer, and ready status
@@ -17,9 +17,7 @@ I originally started this project because I wanted a simple way to watch videos 
 
 ## How It Works
 
-When the host plays, pauses, or changes the video timeline, the Chrome extension detects the action and sends it to the TogetherScreen server.
-
-The server then sends the update to everyone else in the same room.
+When the host plays, pauses, or changes the video timeline, the Chrome extension detects the action and sends it to the TogetherScreen server. The server then sends the update to everyone else in the same room.
 
 ```text
 Host's video
@@ -32,8 +30,6 @@ Other participants
      ↓
 Their videos update
 ```
-
-Socket.IO is used to maintain real-time communication between the users and the server.
 
 ## Technologies Used
 
@@ -97,10 +93,32 @@ http://localhost:5173
 3. Enable **Developer mode**.
 4. Click **Load unpacked**.
 5. Select the `extension` folder.
-6. Open a YouTube video.
-7. Open the TogetherScreen extension.
+6. Open the TogetherScreen extension.
 
 For testing with two users, use two separate Chrome profiles and load the extension in both profiles.
+
+## Running Online
+
+The backend can be deployed using any hosting service that supports Node.js and WebSockets.
+After deployment, update the server address inside:
+
+```text
+extension/config.js
+```
+
+Change:
+
+```js
+SERVER_URL: "http://localhost:3001"
+```
+
+to your deployed backend address:
+
+```js
+SERVER_URL: "https://your-server-address.com"
+```
+
+Extension reload is required after changing the server address.
 
 ## Testing
 
@@ -126,56 +144,12 @@ For testing with two users, use two separate Chrome profiles and load the extens
 2. The host clicks **Start Together**.
 3. Both videos begin after the synchronized countdown.
 
-The host can then control:
+The host must be able to control the following actions:
 
 - Play
 - Pause
 - Seek
 - Synchronized playback
-
-## Environment Variables
-
-The local backend can use a `server/.env` file:
-
-```env
-PORT=3001
-CLIENT_URLS=http://localhost:5173
-```
-
-The website can use a `web/.env` file:
-
-```env
-VITE_SERVER_URL=http://localhost:3001
-```
-
-Do not upload `.env` files to GitHub.
-
-Use `.env.example` files to show which environment variables are required without exposing private information.
-
-## Deployment
-
-The backend can be deployed using Render.
-
-After deployment, update the server address inside:
-
-```text
-extension/config.js
-```
-
-Change:
-
-```js
-SERVER_URL: "http://localhost:3001"
-```
-
-to the deployed backend address:
-
-```js
-SERVER_URL: "https://your-server-address.onrender.com"
-```
-
-Reload the extension after changing the server address.
-
 
 ## Author
 
