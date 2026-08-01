@@ -1370,7 +1370,7 @@ input:focus-visible {
 .hero-copy-centered .hero-description {
   max-width: 760px;
   margin-inline: auto;
-  font-size: clamp(1.08rem, 1.8vw, 1.35rem);
+  font-size: clamp(0.95rem, 1.5vw, 1.15rem);
 }
 
 .hero-copy-centered .feature-row {

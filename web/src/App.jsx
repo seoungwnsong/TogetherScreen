@@ -104,7 +104,7 @@ const FAQ_ITEMS = [
   {
     question: "How do I use TogetherScreen?",
     answer:
-      "Create a room, choose a room code, share the invite link, and ask everyone to join. Once everyone is ready, the host starts the synchronized countdown and playback begins together.",
+      "Install the TogetherScreen Chrome extension and open the video you want to watch. Create a room, share the room code, and ask everyone to join. Once everyone is ready, the host can start and control synchronized playback.",
   },
   {
     question: "Who controls playback?",
@@ -895,11 +895,9 @@ function App() {
 
             <div className="hero-copy hero-copy-centered">
               <p className="eyebrow">REAL-TIME WATCH PARTIES</p>
-              <h1>Your movie night, perfectly in sync.</h1>
+              <h1>Watch together, and make distance feel smaller.</h1>
               <p className="hero-description">
-                Create a private room to watch together with friends, family, or
-                someone far away. Share one synchronized timeline, chat live, and
-                make distance feel smaller.
+                Ready to start? Create a room or join one with a code.
               </p>
 
             </div>
