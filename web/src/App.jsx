@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import "./App.css";
-import worldMapFilled from "./assets/world-map-filled.png";
+import togetherScreenLogo from "./assets/together-screen-logo.png";
+import globalNetworkBackground from "./assets/global-network-background.png";
 
 const SERVER_URL =
   import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
@@ -104,7 +105,7 @@ const FAQ_ITEMS = [
   {
     question: "How do I use TogetherScreen?",
     answer:
-      "Install the TogetherScreen Chrome extension and open the video you want to watch. Create a room, share the room code, and ask everyone to join. Once everyone is ready, the host can start and control synchronized playback.",
+      "Create a room, choose a room code, share the invite link, and ask everyone to join. Once everyone is ready, the host starts the synchronized countdown and playback begins together.",
   },
   {
     question: "Who controls playback?",
@@ -177,6 +178,7 @@ function App() {
   const isRemoteUpdate = useRef(false);
   const countdownTimer = useRef(null);
   const isHostRef = useRef(false);
+  const generateEffectTimer = useRef(null);
   const participantIdRef = useRef(getTabParticipantId());
 
   const invitedRoomId = useMemo(roomIdFromPath, []);
@@ -185,6 +187,7 @@ function App() {
   const [name, setName] = useState("");
   const [roomId, setRoomId] = useState(invitedRoomId);
   const [roomMode, setRoomMode] = useState(invitedRoomId ? "join" : "create");
+  const [codeGenerated, setCodeGenerated] = useState(false);
 
 
   const [roomMovieTitle, setRoomMovieTitle] = useState("");
@@ -250,6 +253,19 @@ function App() {
 
   function clearNotice() {
     setNotice({ type: "", text: "" });
+  }
+
+  function handleGenerateRoomCode() {
+    setRoomId(createRoomCode());
+    setCodeGenerated(true);
+
+    if (generateEffectTimer.current) {
+      window.clearTimeout(generateEffectTimer.current);
+    }
+
+    generateEffectTimer.current = window.setTimeout(() => {
+      setCodeGenerated(false);
+    }, 700);
   }
 
   function saveRoomSession(nextRoomId, nextName) {
@@ -818,13 +834,13 @@ function App() {
           }}
           aria-label="TogetherScreen home"
         >
-          <span className="brand-wordmark" aria-hidden="true">
-            <span className="brand-word brand-word-together">Together</span>
-            <span className="brand-word brand-word-screen">
-              <span className="brand-word-s">S</span>
-              <span className="brand-word-rest">creen</span>
-            </span>
-          </span>
+          <img
+            src={togetherScreenLogo}
+            alt=""
+            className="brand-logo-image"
+            aria-hidden="true"
+            draggable="false"
+          />
         </button>
 
         <div
@@ -847,49 +863,12 @@ function App() {
         <main className="landing-page">
           <section className="landing-hero landing-hero-centered">
             <div className="hero-network-bg" aria-hidden="true">
-              <div className="map-stage">
-                <img
-                  src={worldMapFilled}
-                  alt=""
-                  className="network-map-image"
-                  draggable="false"
-                />
-
-                <svg viewBox="0 0 612 408" className="network-overlay" preserveAspectRatio="xMidYMid meet">
-                  <g className="network-links">
-                    <path d="M105 145C165 130 234 132 286 145" />
-                    <path d="M105 145C130 185 154 225 176 255" />
-                    <path d="M176 255C222 238 267 223 308 212" />
-                    <path d="M286 145C300 168 304 188 308 212" />
-                    <path d="M286 145C324 152 343 170 356 190" />
-                    <path d="M356 190C377 194 388 197 392 206" />
-                    <path d="M392 206C420 196 436 185 448 170" />
-                    <path d="M448 170C469 164 486 161 500 165" />
-                    <path d="M448 170C461 188 472 206 476 226" />
-                    <path d="M476 226C496 248 516 270 532 294" />
-                    <path d="M308 212C314 244 319 266 327 286" />
-                    <path d="M176 255C236 240 312 223 392 206" />
-                    <path d="M286 145C340 135 401 135 500 165" />
-                    <path d="M105 145C234 110 372 108 500 165" />
-                    <path d="M105 145C255 122 397 124 532 294" />
-                    <path d="M176 255C264 262 392 275 532 294" />
-                  </g>
-
-                  <g className="network-nodes">
-                    <circle cx="105" cy="145" r="3.6" />
-                    <circle cx="176" cy="255" r="3.4" />
-                    <circle cx="286" cy="145" r="3.4" />
-                    <circle cx="308" cy="212" r="3.2" />
-                    <circle cx="327" cy="286" r="3.2" />
-                    <circle cx="356" cy="190" r="3.0" />
-                    <circle cx="392" cy="206" r="3.2" />
-                    <circle cx="448" cy="170" r="3.2" />
-                    <circle cx="500" cy="165" r="3.0" />
-                    <circle cx="476" cy="226" r="3.0" />
-                    <circle cx="532" cy="294" r="3.4" />
-                  </g>
-                </svg>
-              </div>
+              <img
+                src={globalNetworkBackground}
+                alt=""
+                className="hero-background-image"
+                draggable="false"
+              />
               <div className="hero-overlay" />
             </div>
 
@@ -962,11 +941,13 @@ function App() {
                 {roomMode === "create" && (
                   <button
                     type="button"
-                    className="input-action"
-                    onClick={() => setRoomId(createRoomCode())}
+                    className={`input-action generate-button ${
+                      codeGenerated ? "generated" : ""
+                    }`}
+                    onClick={handleGenerateRoomCode}
                     disabled={pending}
                   >
-                    Generate
+                    {codeGenerated ? "Generated" : "Generate"}
                   </button>
                 )}
               </div>
