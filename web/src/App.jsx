@@ -10,6 +10,8 @@ import netflixLogo from "./assets/logo-netflix.png";
 import tiktokLogo from "./assets/logo-tiktok.png";
 import html5Logo from "./assets/logo-html5.png";
 import chromeExtensionBadge from "./assets/chrome-extension-badge.png";
+import macbookFrame from "./assets/macbook-frame.png";
+import demoVideo from "./assets/demo-video.mp4";
 
 const SERVER_URL =
   import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
@@ -186,7 +188,8 @@ function App() {
   const countdownTimer = useRef(null);
   const isHostRef = useRef(false);
   const generateEffectTimer = useRef(null);
-  const setupCardRef = useRef(null);
+  const seeActionRef = useRef(null);
+  const seeActionVideoRefs = useRef([]);
   const participantIdRef = useRef(getTabParticipantId());
 
   const invitedRoomId = useMemo(roomIdFromPath, []);
@@ -276,18 +279,73 @@ function App() {
     }, 700);
   }
 
-  function scrollToSetupCard() {
-    const setupCard = setupCardRef.current;
-    if (!setupCard) return;
+  function scrollToSeeAction() {
+    const seeActionSection = seeActionRef.current;
+    if (!seeActionSection) return;
 
     const scrollTarget =
-      setupCard.getBoundingClientRect().top + window.scrollY - 140;
+      seeActionSection.getBoundingClientRect().top + window.scrollY - 110;
 
     window.scrollTo({
       top: Math.max(0, scrollTarget),
       behavior: "smooth",
     });
   }
+
+  useEffect(() => {
+    const videos = seeActionVideoRefs.current.filter(Boolean);
+    if (!videos.length) return undefined;
+
+    const primary = videos[0];
+
+    const playAll = () => {
+      videos.forEach((video) => {
+        video.muted = true;
+        video.play().catch(() => {});
+      });
+    };
+
+    const syncAll = () => {
+      const sourceTime = primary.currentTime;
+
+      videos.slice(1).forEach((video) => {
+        if (Math.abs(video.currentTime - sourceTime) > 0.08) {
+          video.currentTime = sourceTime;
+        }
+
+        if (primary.paused && !video.paused) {
+          video.pause();
+        } else if (!primary.paused && video.paused) {
+          video.play().catch(() => {});
+        }
+      });
+    };
+
+    const handleLoaded = () => {
+      if (videos.every((video) => video.readyState >= 1)) {
+        videos.forEach((video) => {
+          video.currentTime = 0;
+        });
+        playAll();
+      }
+    };
+
+    videos.forEach((video) => {
+      video.addEventListener("loadedmetadata", handleLoaded);
+      video.addEventListener("play", playAll);
+    });
+
+    playAll();
+    const syncTimer = window.setInterval(syncAll, 250);
+
+    return () => {
+      window.clearInterval(syncTimer);
+      videos.forEach((video) => {
+        video.removeEventListener("loadedmetadata", handleLoaded);
+        video.removeEventListener("play", playAll);
+      });
+    };
+  }, []);
 
   function saveRoomSession(nextRoomId, nextName) {
     sessionStorage.setItem(
@@ -902,7 +960,7 @@ function App() {
             <div className="hero-copy hero-copy-centered">
               <p className="eyebrow">WATCH TOGETHER, ANYWHERE</p>
               <h1>Watch together, and make distance feel smaller.</h1>
-              <button type="button" className="hero-start-button" onClick={scrollToSetupCard}>
+              <button type="button" className="hero-start-button" onClick={scrollToSeeAction}>
                 Start now
               </button>
 
@@ -957,101 +1015,90 @@ function App() {
             </div>
           </section>
 
-          <section className="setup-card" ref={setupCardRef}>
-            <div className="setup-heading">
-              <div>
-                <p className="section-kicker">START WATCHING</p>
-                <h2>{roomMode === "create" ? "Create a room" : "Join a room"}</h2>
-              </div>
-              <div className="mode-switch" role="tablist">
-                <button
-                  type="button"
-                  className={roomMode === "create" ? "active" : ""}
-                  onClick={() => {
-                    setRoomMode("create");
-                    clearNotice();
-                  }}
-                  disabled={pending}
-                >
-                  Create
-                </button>
-                <button
-                  type="button"
-                  className={roomMode === "join" ? "active" : ""}
-                  onClick={() => {
-                    setRoomMode("join");
-                    clearNotice();
-                  }}
-                  disabled={pending}
-                >
-                  Join
-                </button>
-              </div>
+          <section className="see-action-section" ref={seeActionRef}>
+            <div className="see-action-heading">
+              <p className="section-kicker">SEE IT IN ACTION</p>
+              <h2>
+                Enjoy Videos together - One room. One timeline. Everyone together.
+              </h2>
             </div>
 
-            <div className="form-stack">
-              <label className="floating-field">
-                <input
-                  value={name}
-                  maxLength={30}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder=" "
-                  autoComplete="name"
-                  disabled={pending}
-                />
-                <span className="floating-label">Name</span>
-              </label>
-
-              <div className="floating-field-with-action">
-                <label className="floating-field">
-                  <input
-                    value={roomId}
-                    maxLength={40}
-                    onChange={(event) => setRoomId(event.target.value)}
-                    placeholder=" "
-                    disabled={pending}
+            <div className="macbook-triangle" aria-label="Three synchronized MacBooks playing the same video">
+              <div className="action-device action-device-top">
+                <div className="action-device-shell">
+                  <video
+                    ref={(node) => {
+                      seeActionVideoRefs.current[0] = node;
+                    }}
+                    className="action-device-video"
+                    src={demoVideo}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="auto"
+                    aria-label="TogetherScreen synchronized video demonstration"
                   />
-                  <span className="floating-label">Room code</span>
-                </label>
-                {roomMode === "create" && (
-                  <button
-                    type="button"
-                    className={`input-action generate-button ${
-                      codeGenerated ? "generated" : ""
-                    }`}
-                    onClick={handleGenerateRoomCode}
-                    disabled={pending}
-                  >
-                    {codeGenerated ? "Generated" : "Generate"}
-                  </button>
-                )}
+                  <img
+                    src={macbookFrame}
+                    alt="MacBook"
+                    className="action-device-frame"
+                    draggable="false"
+                  />
+                </div>
               </div>
 
-              <button
-                type="button"
-                className="primary-cta"
-                onClick={roomMode === "create" ? createRoom : joinExistingRoom}
-                disabled={pending}
-              >
-                {pending
-                  ? roomMode === "create"
-                    ? "Creating room…"
-                    : "Joining room…"
-                  : roomMode === "create"
-                    ? "Create room"
-                    : "Join room"}
-              </button>
-            </div>
+              <div className="action-device action-device-left">
+                <div className="action-device-shell">
+                  <video
+                    ref={(node) => {
+                      seeActionVideoRefs.current[1] = node;
+                    }}
+                    className="action-device-video"
+                    src={demoVideo}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="auto"
+                    aria-label="TogetherScreen synchronized video demonstration"
+                  />
+                  <img
+                    src={macbookFrame}
+                    alt="MacBook"
+                    className="action-device-frame"
+                    draggable="false"
+                  />
+                </div>
+              </div>
 
-            {notice.text && <div className={`notice ${notice.type}`}>{notice.text}</div>}
+              <div className="action-device action-device-right">
+                <div className="action-device-shell">
+                  <video
+                    ref={(node) => {
+                      seeActionVideoRefs.current[2] = node;
+                    }}
+                    className="action-device-video"
+                    src={demoVideo}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="auto"
+                    aria-label="TogetherScreen synchronized video demonstration"
+                  />
+                  <img
+                    src={macbookFrame}
+                    alt="MacBook"
+                    className="action-device-frame"
+                    draggable="false"
+                  />
+                </div>
+              </div>
+            </div>
           </section>
 
           <section className="landing-explain">
-            <div className="section-heading">
-              <p className="section-kicker">WHY TOGETHERSCREEN</p>
-              <h2>One room. One timeline. Everyone together.</h2>
-            </div>
-
             <div className="why-grid">
               {WHY_FEATURES.map((feature) => (
                 <article className="why-card" key={feature.title}>
@@ -1088,7 +1135,15 @@ function App() {
           </section>
 
           <footer className="landing-footer">
-            <p>© 2026 TogetherScreen. All rights reserved.</p>
+            <div className="landing-footer-brand">
+              <img
+                src={togetherScreenLogo}
+                alt="Together Screen"
+                className="landing-footer-logo"
+                draggable="false"
+              />
+              <p>© 2026 TogetherScreen. All rights reserved.</p>
+            </div>
           </footer>
         </main>
       ) : (

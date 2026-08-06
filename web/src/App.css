@@ -4723,3 +4723,491 @@ body,
     font-size: 0.92rem;
   }
 }
+
+/* v20 update: replace the web room form with a looping three-device product demo */
+.see-action-section {
+  position: relative;
+  width: min(1440px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 104px 0 124px;
+  overflow: hidden;
+  text-align: center;
+}
+
+.see-action-section::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 42px;
+  width: min(980px, 78vw);
+  height: 280px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(242, 24, 38, 0.13) 0%,
+    rgba(242, 24, 38, 0.045) 44%,
+    rgba(242, 24, 38, 0) 74%
+  );
+  filter: blur(18px);
+  pointer-events: none;
+}
+
+.see-action-heading {
+  position: relative;
+  z-index: 2;
+  max-width: 930px;
+  margin: 0 auto 34px;
+}
+
+.see-action-heading .section-kicker {
+  margin-bottom: 15px;
+  color: #f31f2f;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.see-action-heading h2 {
+  margin: 0;
+  color: #ffffff;
+  font-family: var(--body-font);
+  font-size: clamp(1.75rem, 2.8vw, 3rem);
+  font-weight: 800;
+  line-height: 1.14;
+  letter-spacing: -0.035em;
+}
+
+.macbook-triangle {
+  position: relative;
+  z-index: 1;
+  width: min(1160px, 100%);
+  height: 690px;
+  margin: 0 auto;
+}
+
+.action-device {
+  position: absolute;
+  filter: drop-shadow(0 28px 32px rgba(0, 0, 0, 0.46));
+}
+
+.action-device-shell {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 5 / 3;
+}
+
+.action-device-video {
+  position: absolute;
+  z-index: 1;
+  top: 12.2%;
+  left: 17.85%;
+  width: 64.3%;
+  height: 69.45%;
+  display: block;
+  border: 0;
+  border-radius: 3px;
+  background: #000000;
+  object-fit: cover;
+}
+
+.action-device-frame {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.action-device-top {
+  top: 4px;
+  left: 50%;
+  z-index: 3;
+  width: 590px;
+  transform: translateX(-50%);
+}
+
+.action-device-left {
+  left: 28px;
+  bottom: 8px;
+  z-index: 2;
+  width: 465px;
+  transform: rotate(-1.5deg);
+}
+
+.action-device-right {
+  right: 28px;
+  bottom: 8px;
+  z-index: 2;
+  width: 465px;
+  transform: rotate(1.5deg);
+}
+
+.action-device-top .action-device-shell::after {
+  content: "SYNCED";
+  position: absolute;
+  z-index: 4;
+  top: 17.5%;
+  right: 22.5%;
+  padding: 7px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(8, 8, 8, 0.78);
+  color: rgba(255, 255, 255, 0.95);
+  font-family: var(--body-font);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(8px);
+}
+
+@media (max-width: 1120px) {
+  .see-action-section {
+    padding-top: 92px;
+  }
+
+  .macbook-triangle {
+    height: 610px;
+  }
+
+  .action-device-top {
+    width: 520px;
+  }
+
+  .action-device-left,
+  .action-device-right {
+    width: 400px;
+  }
+
+  .action-device-left {
+    left: 12px;
+  }
+
+  .action-device-right {
+    right: 12px;
+  }
+}
+
+@media (max-width: 860px) {
+  .see-action-section {
+    width: min(100% - 30px, 720px);
+    padding: 84px 0 94px;
+  }
+
+  .see-action-heading {
+    margin-bottom: 44px;
+  }
+
+  .macbook-triangle {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .action-device,
+  .action-device-top,
+  .action-device-left,
+  .action-device-right {
+    position: relative;
+    inset: auto;
+    width: min(570px, 94vw);
+    transform: none;
+  }
+
+  .action-device-left,
+  .action-device-right {
+    width: min(470px, 82vw);
+  }
+}
+
+@media (max-width: 560px) {
+  .see-action-section {
+    width: calc(100% - 22px);
+    padding: 72px 0 78px;
+  }
+
+  .see-action-heading {
+    margin-bottom: 34px;
+  }
+
+  .see-action-heading h2 {
+    font-size: 1.52rem;
+    line-height: 1.2;
+  }
+
+  .action-device-top,
+  .action-device-left,
+  .action-device-right {
+    width: 100%;
+  }
+
+  .action-device-top .action-device-shell::after {
+    padding: 5px 8px;
+    font-size: 0.48rem;
+  }
+}
+
+/* v21 update: matched demo devices, smaller heading, remove why-section heading spacing, footer logo */
+.see-action-section {
+  padding: 92px 0 112px;
+}
+
+.see-action-heading {
+  max-width: 860px;
+  margin: 0 auto 28px;
+}
+
+.see-action-heading h2 {
+  font-size: clamp(1.4rem, 2vw, 2.1rem);
+  line-height: 1.18;
+}
+
+.macbook-triangle {
+  width: min(1100px, 100%);
+  height: 620px;
+}
+
+.action-device {
+  filter: drop-shadow(0 24px 28px rgba(0, 0, 0, 0.42));
+}
+
+.action-device-top,
+.action-device-left,
+.action-device-right {
+  width: 470px;
+  transform: none;
+}
+
+.action-device-top {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.action-device-left {
+  left: 76px;
+  bottom: 0;
+}
+
+.action-device-right {
+  right: 76px;
+  bottom: 0;
+}
+
+.action-device-video {
+  top: 12.2%;
+  left: 17.85%;
+  width: 64.3%;
+  height: 69.45%;
+  object-fit: cover;
+}
+
+.action-device-top .action-device-shell::after {
+  top: 17.2%;
+  right: 22.3%;
+}
+
+.landing-explain {
+  padding-top: 24px;
+}
+
+.landing-footer {
+  margin-top: 66px;
+}
+
+.landing-footer-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.landing-footer-logo {
+  width: 110px;
+  height: auto;
+  object-fit: contain;
+  opacity: 0.68;
+}
+
+.landing-footer p {
+  margin: 0;
+}
+
+@media (max-width: 1120px) {
+  .see-action-section {
+    padding-top: 84px;
+  }
+
+  .macbook-triangle {
+    height: 570px;
+  }
+
+  .action-device-top,
+  .action-device-left,
+  .action-device-right {
+    width: 420px;
+  }
+
+  .action-device-left {
+    left: 38px;
+  }
+
+  .action-device-right {
+    right: 38px;
+  }
+}
+
+@media (max-width: 860px) {
+  .see-action-section {
+    width: min(100% - 30px, 720px);
+    padding: 76px 0 90px;
+  }
+
+  .see-action-heading {
+    margin-bottom: 34px;
+  }
+
+  .see-action-heading h2 {
+    font-size: 1.32rem;
+  }
+
+  .macbook-triangle {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .action-device,
+  .action-device-top,
+  .action-device-left,
+  .action-device-right {
+    position: relative;
+    inset: auto;
+    width: min(500px, 92vw);
+    transform: none;
+  }
+
+  .landing-footer-brand {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 560px) {
+  .see-action-section {
+    width: calc(100% - 22px);
+    padding: 68px 0 76px;
+  }
+
+  .see-action-heading h2 {
+    font-size: 1.18rem;
+  }
+
+  .action-device-top,
+  .action-device-left,
+  .action-device-right {
+    width: 100%;
+  }
+
+  .landing-footer-logo {
+    width: 96px;
+  }
+}
+
+
+/* v22 update: larger demo laptops and tighter spacing before next section */
+.see-action-section {
+  padding: 82px 0 56px;
+}
+
+.see-action-heading {
+  margin: 0 auto 20px;
+}
+
+.macbook-triangle {
+  width: min(1180px, 100%);
+  height: 700px;
+}
+
+.action-device-top,
+.action-device-left,
+.action-device-right {
+  width: 540px;
+}
+
+.action-device-top {
+  top: 0;
+}
+
+.action-device-left {
+  left: 58px;
+  bottom: 0;
+}
+
+.action-device-right {
+  right: 58px;
+  bottom: 0;
+}
+
+.landing-explain {
+  padding-top: 4px;
+}
+
+@media (max-width: 1120px) {
+  .see-action-section {
+    padding: 76px 0 48px;
+  }
+
+  .macbook-triangle {
+    height: 620px;
+  }
+
+  .action-device-top,
+  .action-device-left,
+  .action-device-right {
+    width: 470px;
+  }
+
+  .action-device-left {
+    left: 22px;
+  }
+
+  .action-device-right {
+    right: 22px;
+  }
+}
+
+@media (max-width: 860px) {
+  .see-action-section {
+    padding: 68px 0 42px;
+  }
+
+  .see-action-heading {
+    margin-bottom: 26px;
+  }
+
+  .macbook-triangle {
+    gap: 10px;
+  }
+
+  .action-device,
+  .action-device-top,
+  .action-device-left,
+  .action-device-right {
+    width: min(540px, 94vw);
+  }
+}
+
+@media (max-width: 560px) {
+  .see-action-section {
+    padding: 60px 0 36px;
+  }
+}
