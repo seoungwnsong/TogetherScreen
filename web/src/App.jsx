@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import "./App.css";
 import togetherScreenLogo from "./assets/together-screen-logo.png";
-import globalNetworkBackground from "./assets/global-network-background.png";
+import worldMapBase from "./assets/world-map-base.png";
+import worldNetworkLines from "./assets/world-network-lines.png";
 
 const SERVER_URL =
   import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
@@ -864,9 +865,15 @@ function App() {
           <section className="landing-hero landing-hero-centered">
             <div className="hero-network-bg" aria-hidden="true">
               <img
-                src={globalNetworkBackground}
+                src={worldMapBase}
                 alt=""
-                className="hero-background-image"
+                className="hero-background-base"
+                draggable="false"
+              />
+              <img
+                src={worldNetworkLines}
+                alt=""
+                className="hero-background-lines"
                 draggable="false"
               />
               <div className="hero-overlay" />

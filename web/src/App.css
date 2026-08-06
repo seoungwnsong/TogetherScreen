@@ -2903,3 +2903,239 @@ input:focus-visible {
     letter-spacing: 0.09em;
   }
 }
+
+/* v3 update: separate glowing network overlay, Aptos body text, Disney+-style feature cards */
+:root {
+  --body-font: Aptos, "Aptos", "Inter", "Avenir Next", Arial, sans-serif;
+  --condensed-font: "Avenir Next Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+}
+
+.app-shell,
+.app-shell input,
+.app-shell textarea,
+.app-shell select,
+.app-shell button,
+.app-shell p,
+.app-shell span,
+.app-shell small,
+.app-shell li,
+.app-shell label,
+.app-shell summary,
+.app-shell strong {
+  font-family: var(--body-font);
+}
+
+.hero-network-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.hero-background-base,
+.hero-background-lines {
+  position: absolute;
+  top: 50%;
+  right: -90px;
+  width: min(68vw, 1120px);
+  max-width: none;
+  height: auto;
+  transform: translateY(-50%);
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+}
+
+.hero-background-base {
+  opacity: 0.94;
+  z-index: 0;
+}
+
+.hero-background-lines {
+  opacity: 0.98;
+  z-index: 1;
+  filter:
+    drop-shadow(0 0 5px rgba(255, 34, 34, 0.78))
+    drop-shadow(0 0 14px rgba(229, 9, 20, 0.72))
+    drop-shadow(0 0 28px rgba(229, 9, 20, 0.44));
+  animation: red-network-glow 2.9s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+
+@keyframes red-network-glow {
+  0%,
+  100% {
+    opacity: 0.84;
+    filter:
+      drop-shadow(0 0 4px rgba(255, 34, 34, 0.62))
+      drop-shadow(0 0 10px rgba(229, 9, 20, 0.56))
+      drop-shadow(0 0 22px rgba(229, 9, 20, 0.32));
+  }
+
+  50% {
+    opacity: 1;
+    filter:
+      drop-shadow(0 0 7px rgba(255, 60, 60, 0.94))
+      drop-shadow(0 0 18px rgba(255, 28, 28, 0.88))
+      drop-shadow(0 0 34px rgba(229, 9, 20, 0.54));
+  }
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background:
+    linear-gradient(
+      90deg,
+      #050505 0%,
+      rgba(5, 5, 5, 0.995) 23%,
+      rgba(5, 5, 5, 0.94) 37%,
+      rgba(5, 5, 5, 0.56) 56%,
+      rgba(5, 5, 5, 0.12) 79%,
+      rgba(5, 5, 5, 0.03) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(3, 3, 3, 0.05) 0%,
+      rgba(3, 3, 3, 0.1) 58%,
+      rgba(3, 3, 3, 0.88) 100%
+    );
+}
+
+.hero-copy-centered,
+.setup-card {
+  position: relative;
+  z-index: 3;
+}
+
+.primary-cta,
+.generate-button {
+  font-family: var(--condensed-font);
+  font-size: 0.94rem;
+  font-stretch: condensed;
+  font-weight: 400;
+  letter-spacing: 0.105em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.section-heading {
+  max-width: 1200px;
+  margin: 0 auto 34px;
+  text-align: center;
+}
+
+.why-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+}
+
+.why-card {
+  min-height: 0;
+  padding: 10px 16px 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 20px;
+  text-align: center;
+}
+
+.why-card-icon {
+  order: -1;
+  flex: 0 0 auto;
+  width: 108px;
+  height: 108px;
+  border: 2px solid rgba(255, 255, 255, 0.38);
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.why-card-icon svg {
+  width: 48px;
+  height: 48px;
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.82);
+  stroke-width: 2.15;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.why-card-copy {
+  max-width: 580px;
+}
+
+.why-card h3 {
+  margin: 0 0 18px;
+  font-size: clamp(1.65rem, 2.3vw, 2.05rem);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.why-card p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: clamp(1rem, 1.45vw, 1.18rem);
+  line-height: 1.62;
+}
+
+@media (max-width: 1024px) {
+  .hero-background-base,
+  .hero-background-lines {
+    right: -210px;
+    width: min(86vw, 980px);
+  }
+
+  .why-grid {
+    grid-template-columns: 1fr;
+    gap: 34px;
+  }
+
+  .why-card {
+    padding-top: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .hero-background-base,
+  .hero-background-lines {
+    top: 51%;
+    right: -330px;
+    width: 1160px;
+  }
+
+  .hero-overlay {
+    background:
+      linear-gradient(
+        90deg,
+        rgba(5, 5, 5, 0.99) 0%,
+        rgba(5, 5, 5, 0.94) 54%,
+        rgba(5, 5, 5, 0.56) 84%,
+        rgba(5, 5, 5, 0.3) 100%
+      ),
+      linear-gradient(180deg, rgba(3, 3, 3, 0.06) 0%, rgba(3, 3, 3, 0.92) 100%);
+  }
+
+  .why-card-icon {
+    width: 88px;
+    height: 88px;
+  }
+
+  .why-card-icon svg {
+    width: 40px;
+    height: 40px;
+  }
+
+  .why-card h3 {
+    font-size: 1.8rem;
+  }
+
+  .why-card p {
+    font-size: 1rem;
+  }
+}
