@@ -3139,3 +3139,763 @@ input:focus-visible {
     font-size: 1rem;
   }
 }
+
+/* v6 update: top gap fill + supported platforms row */
+.hero-network-bg::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 92px;
+  background: linear-gradient(180deg, #050505 0%, rgba(5, 5, 5, 0.96) 58%, rgba(5, 5, 5, 0) 100%);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.hero-overlay {
+  z-index: 3;
+}
+
+.hero-copy-centered,
+.setup-card {
+  z-index: 4;
+}
+
+.supported-platforms {
+  margin-top: 28px;
+  max-width: 760px;
+}
+
+.supported-platforms-title {
+  margin: 0 0 14px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.supported-platforms-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  min-height: 40px;
+}
+
+.supported-platform-logo {
+  display: block;
+  height: 34px;
+  width: auto;
+  object-fit: contain;
+  opacity: 0.96;
+  filter: drop-shadow(0 0 0 rgba(0,0,0,0));
+}
+
+.logo-youtube {
+  height: 28px;
+}
+
+.logo-twitch {
+  height: 32px;
+}
+
+.logo-netflix {
+  height: 36px;
+}
+
+.logo-tiktok {
+  height: 38px;
+}
+
+.logo-html5 {
+  height: 34px;
+}
+
+.supported-platform-note {
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 1024px) {
+  .supported-platforms {
+    max-width: 680px;
+  }
+
+  .supported-platform-logo {
+    height: 32px;
+  }
+
+  .logo-youtube {
+    height: 26px;
+  }
+
+  .logo-netflix,
+  .logo-tiktok {
+    height: 34px;
+  }
+}
+
+@media (max-width: 720px) {
+  .hero-network-bg::before {
+    height: 72px;
+  }
+
+  .supported-platforms {
+    margin-top: 22px;
+  }
+
+  .supported-platforms-title {
+    font-size: 0.95rem;
+  }
+
+  .supported-platforms-row {
+    gap: 10px 12px;
+  }
+
+  .supported-platform-logo {
+    height: 28px;
+  }
+
+  .logo-youtube {
+    height: 24px;
+  }
+
+  .logo-netflix,
+  .logo-tiktok {
+    height: 30px;
+  }
+
+  .supported-platform-note {
+    font-size: 0.78rem;
+  }
+}
+
+/* v7 update: CTA hero button, larger logos, white tiktok/twitch, red feature icons */
+.hero-copy-centered .eyebrow {
+  color: #ff2a2a;
+}
+
+.hero-start-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  padding: 0 28px;
+  margin: 10px 0 0;
+  border: 1px solid rgba(255, 52, 52, 0.85);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ff2a2a 0%, #d80d14 100%);
+  color: #ffffff;
+  font-family: var(--condensed-font);
+  font-size: 0.98rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  box-shadow: 0 14px 34px rgba(229, 9, 20, 0.28);
+  transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease;
+}
+
+.hero-start-button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow: 0 18px 40px rgba(229, 9, 20, 0.34);
+}
+
+.hero-start-button:active {
+  transform: translateY(0) scale(0.985);
+}
+
+.supported-platforms {
+  margin-top: 24px;
+}
+
+.supported-platforms-row {
+  gap: 12px 22px;
+}
+
+.supported-platform-logo {
+  height: 42px;
+  opacity: 0.98;
+}
+
+.logo-youtube {
+  height: 36px;
+}
+
+.logo-twitch {
+  height: 40px;
+  filter: brightness(0) invert(1);
+  opacity: 0.96;
+}
+
+.logo-netflix {
+  height: 48px;
+}
+
+.logo-tiktok {
+  height: 52px;
+  filter: brightness(0) invert(1);
+  opacity: 0.96;
+}
+
+.logo-html5 {
+  height: 40px;
+}
+
+.landing-explain .section-kicker {
+  color: #ff2a2a;
+}
+
+.why-card-icon {
+  border-color: rgba(255, 42, 42, 0.55);
+  color: #ff2a2a;
+}
+
+.why-card-icon svg {
+  stroke: #ff2a2a;
+}
+
+@media (max-width: 1024px) {
+  .supported-platform-row,
+  .supported-platforms-row {
+    gap: 10px 18px;
+  }
+
+  .supported-platform-logo {
+    height: 38px;
+  }
+
+  .logo-youtube {
+    height: 32px;
+  }
+
+  .logo-twitch {
+    height: 36px;
+  }
+
+  .logo-netflix {
+    height: 44px;
+  }
+
+  .logo-tiktok {
+    height: 46px;
+  }
+
+  .logo-html5 {
+    height: 36px;
+  }
+}
+
+@media (max-width: 720px) {
+  .hero-start-button {
+    min-height: 50px;
+    padding: 0 24px;
+    font-size: 0.92rem;
+  }
+
+  .supported-platforms-row {
+    gap: 10px 16px;
+  }
+
+  .supported-platform-logo {
+    height: 32px;
+  }
+
+  .logo-youtube {
+    height: 27px;
+  }
+
+  .logo-twitch {
+    height: 30px;
+  }
+
+  .logo-netflix {
+    height: 36px;
+  }
+
+  .logo-tiktok {
+    height: 38px;
+  }
+
+  .logo-html5 {
+    height: 31px;
+  }
+}
+
+/* v8 update: square hero button, refreshed colorful platform logos, lower setup card, footer */
+.hero-start-button {
+  min-height: 58px;
+  padding: 0 26px;
+  border-radius: 8px;
+  font-family: var(--condensed-font);
+  font-size: 0.96rem;
+  font-weight: 400;
+  letter-spacing: 0.105em;
+  text-transform: uppercase;
+}
+
+.supported-platform-logo {
+  height: 46px;
+}
+
+.logo-youtube {
+  height: 38px;
+}
+
+.logo-twitch {
+  height: 52px;
+  filter: none;
+  opacity: 0.98;
+}
+
+.logo-netflix {
+  height: 52px;
+}
+
+.logo-tiktok {
+  height: 58px;
+  filter: none;
+  opacity: 0.98;
+}
+
+.logo-html5 {
+  height: 42px;
+}
+
+.setup-card {
+  margin-top: 30px;
+}
+
+.setup-footnote {
+  display: none;
+}
+
+.landing-footer {
+  margin-top: 78px;
+  padding: 22px 0 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: center;
+}
+
+.landing-footer p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 1024px) {
+  .supported-platform-logo {
+    height: 40px;
+  }
+
+  .logo-youtube {
+    height: 33px;
+  }
+
+  .logo-twitch {
+    height: 46px;
+  }
+
+  .logo-netflix {
+    height: 46px;
+  }
+
+  .logo-tiktok {
+    height: 50px;
+  }
+
+  .logo-html5 {
+    height: 37px;
+  }
+
+  .setup-card {
+    margin-top: 24px;
+  }
+}
+
+@media (max-width: 720px) {
+  .hero-start-button {
+    min-height: 52px;
+    padding: 0 22px;
+    border-radius: 6px;
+  }
+
+  .supported-platform-logo {
+    height: 34px;
+  }
+
+  .logo-youtube {
+    height: 28px;
+  }
+
+  .logo-twitch {
+    height: 38px;
+  }
+
+  .logo-netflix {
+    height: 38px;
+  }
+
+  .logo-tiktok {
+    height: 42px;
+  }
+
+  .logo-html5 {
+    height: 31px;
+  }
+
+  .landing-footer {
+    margin-top: 56px;
+    padding-top: 18px;
+  }
+
+  .landing-footer p {
+    font-size: 0.76rem;
+  }
+}
+
+/* v9 update: longer CTA, lower start section, bigger selected logos, softer transition arch, updated footer */
+.hero-start-button {
+  min-width: 198px;
+  padding: 0 34px;
+}
+
+.setup-card {
+  margin-top: 56px;
+  position: relative;
+  isolation: isolate;
+}
+
+.setup-card::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -118px;
+  transform: translateX(-50%);
+  width: min(120vw, 1680px);
+  height: 190px;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse at center bottom,
+      rgba(160, 14, 22, 0.22) 0%,
+      rgba(110, 10, 16, 0.18) 24%,
+      rgba(24, 8, 10, 0.74) 48%,
+      rgba(5, 5, 5, 0.96) 66%,
+      rgba(5, 5, 5, 0) 76%),
+    radial-gradient(ellipse at center top,
+      rgba(255, 38, 48, 0.16) 0%,
+      rgba(255, 38, 48, 0.06) 20%,
+      rgba(255, 38, 48, 0) 54%);
+  filter: blur(6px);
+}
+
+.supported-platform-logo {
+  height: 46px;
+}
+
+.logo-youtube {
+  height: 44px;
+}
+
+.logo-tiktok {
+  height: 64px;
+}
+
+.logo-html5 {
+  height: 48px;
+}
+
+.landing-footer p {
+  text-transform: none;
+}
+
+@media (max-width: 1024px) {
+  .hero-start-button {
+    min-width: 184px;
+    padding: 0 30px;
+  }
+
+  .setup-card {
+    margin-top: 46px;
+  }
+
+  .setup-card::before {
+    top: -104px;
+    height: 170px;
+  }
+
+  .logo-youtube {
+    height: 38px;
+  }
+
+  .logo-tiktok {
+    height: 54px;
+  }
+
+  .logo-html5 {
+    height: 42px;
+  }
+}
+
+@media (max-width: 720px) {
+  .hero-start-button {
+    min-width: 166px;
+    padding: 0 28px;
+  }
+
+  .setup-card {
+    margin-top: 34px;
+  }
+
+  .setup-card::before {
+    top: -82px;
+    height: 136px;
+    width: 130vw;
+  }
+
+  .logo-youtube {
+    height: 32px;
+  }
+
+  .logo-tiktok {
+    height: 46px;
+  }
+
+  .logo-html5 {
+    height: 35px;
+  }
+}
+
+/* v10 correction: restore normal card sizing, remove transition gradient, larger CTA, better scroll landing */
+.setup-card {
+  width: min(960px, calc(100% - 40px));
+  max-width: 960px;
+  margin: 42px auto 0;
+  padding: clamp(24px, 3.2vw, 38px);
+  box-sizing: border-box;
+  isolation: auto;
+}
+
+.setup-card::before {
+  display: none;
+  content: none;
+}
+
+.hero-start-button {
+  min-width: 232px;
+  min-height: 64px;
+  padding: 0 42px;
+  font-size: 1rem;
+}
+
+@media (max-width: 1024px) {
+  .setup-card {
+    width: min(900px, calc(100% - 32px));
+    margin-top: 38px;
+    padding: 30px;
+  }
+
+  .hero-start-button {
+    min-width: 214px;
+    min-height: 60px;
+    padding: 0 36px;
+  }
+}
+
+@media (max-width: 720px) {
+  .setup-card {
+    width: calc(100% - 24px);
+    margin-top: 30px;
+    padding: 24px 18px;
+  }
+
+  .hero-start-button {
+    min-width: 190px;
+    min-height: 56px;
+    padding: 0 30px;
+    font-size: 0.94rem;
+  }
+}
+
+/* v11 update: longer hero CTA, shorter matching height, lower start section, subtle red divider bar */
+.hero-start-button {
+  min-width: 320px;
+  min-height: 54px;
+  padding: 0 44px;
+  border-radius: 10px;
+  font-size: 0.96rem;
+  letter-spacing: 0.105em;
+}
+
+.setup-card {
+  margin-top: 72px;
+  isolation: isolate;
+}
+
+.setup-card::before {
+  content: "";
+  display: block;
+  position: absolute;
+  left: 50%;
+  top: -44px;
+  transform: translateX(-50%);
+  width: min(100vw, 1600px);
+  height: 70px;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(108, 10, 16, 0.22) 0%,
+      rgba(72, 8, 12, 0.18) 36%,
+      rgba(5, 5, 5, 0) 100%
+    ),
+    radial-gradient(
+      ellipse at center,
+      rgba(229, 9, 20, 0.24) 0%,
+      rgba(229, 9, 20, 0.12) 34%,
+      rgba(229, 9, 20, 0.02) 56%,
+      rgba(229, 9, 20, 0) 74%
+    );
+  filter: blur(10px);
+}
+
+.setup-card::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  transform: translateX(-50%);
+  width: min(98vw, 1520px);
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(229, 9, 20, 0) 0%,
+    rgba(229, 9, 20, 0.2) 14%,
+    rgba(229, 9, 20, 0.42) 50%,
+    rgba(229, 9, 20, 0.2) 86%,
+    rgba(229, 9, 20, 0) 100%
+  );
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+@media (max-width: 1024px) {
+  .hero-start-button {
+    min-width: 284px;
+    min-height: 54px;
+    padding: 0 40px;
+  }
+
+  .setup-card {
+    margin-top: 62px;
+  }
+
+  .setup-card::before {
+    top: -38px;
+    height: 62px;
+  }
+}
+
+@media (max-width: 720px) {
+  .hero-start-button {
+    min-width: 248px;
+    min-height: 54px;
+    padding: 0 34px;
+    border-radius: 8px;
+  }
+
+  .setup-card {
+    margin-top: 48px;
+  }
+
+  .setup-card::before {
+    top: -30px;
+    height: 52px;
+    width: 112vw;
+  }
+}
+
+/* v12 update: thicker top bar attached to the top edge, start section lower */
+.setup-card {
+  margin-top: 108px;
+}
+
+.setup-card::before {
+  top: -34px;
+  width: min(100%, 960px);
+  height: 58px;
+  border-radius: 14px 14px 0 0;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(96, 8, 14, 0.82) 0%,
+      rgba(132, 12, 20, 0.58) 26%,
+      rgba(92, 10, 16, 0.34) 58%,
+      rgba(18, 8, 10, 0.12) 82%,
+      rgba(5, 5, 5, 0) 100%
+    ),
+    radial-gradient(
+      ellipse at center,
+      rgba(229, 9, 20, 0.34) 0%,
+      rgba(229, 9, 20, 0.16) 34%,
+      rgba(229, 9, 20, 0.04) 58%,
+      rgba(229, 9, 20, 0) 76%
+    );
+  filter: blur(0px);
+  opacity: 0.98;
+}
+
+.setup-card::after {
+  top: 0;
+  width: min(100%, 960px);
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    rgba(229, 9, 20, 0) 0%,
+    rgba(229, 9, 20, 0.28) 12%,
+    rgba(229, 9, 20, 0.56) 50%,
+    rgba(229, 9, 20, 0.28) 88%,
+    rgba(229, 9, 20, 0) 100%
+  );
+  opacity: 0.9;
+}
+
+@media (max-width: 1024px) {
+  .setup-card {
+    margin-top: 92px;
+  }
+
+  .setup-card::before {
+    top: -30px;
+    width: min(100%, 900px);
+    height: 52px;
+  }
+
+  .setup-card::after {
+    width: min(100%, 900px);
+  }
+}
+
+@media (max-width: 720px) {
+  .setup-card {
+    margin-top: 72px;
+  }
+
+  .setup-card::before {
+    top: -24px;
+    width: 100%;
+    height: 42px;
+    border-radius: 10px 10px 0 0;
+  }
+
+  .setup-card::after {
+    width: 100%;
+    height: 1px;
+  }
+}

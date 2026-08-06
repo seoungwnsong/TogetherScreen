@@ -4,6 +4,11 @@ import "./App.css";
 import togetherScreenLogo from "./assets/together-screen-logo.png";
 import worldMapBase from "./assets/world-map-base.png";
 import worldNetworkLines from "./assets/world-network-lines.png";
+import youtubeLogo from "./assets/logo-youtube.png";
+import twitchLogo from "./assets/logo-twitch.png";
+import netflixLogo from "./assets/logo-netflix.png";
+import tiktokLogo from "./assets/logo-tiktok.png";
+import html5Logo from "./assets/logo-html5.png";
 
 const SERVER_URL =
   import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
@@ -180,6 +185,7 @@ function App() {
   const countdownTimer = useRef(null);
   const isHostRef = useRef(false);
   const generateEffectTimer = useRef(null);
+  const setupCardRef = useRef(null);
   const participantIdRef = useRef(getTabParticipantId());
 
   const invitedRoomId = useMemo(roomIdFromPath, []);
@@ -267,6 +273,19 @@ function App() {
     generateEffectTimer.current = window.setTimeout(() => {
       setCodeGenerated(false);
     }, 700);
+  }
+
+  function scrollToSetupCard() {
+    const setupCard = setupCardRef.current;
+    if (!setupCard) return;
+
+    const scrollTarget =
+      setupCard.getBoundingClientRect().top + window.scrollY - 140;
+
+    window.scrollTo({
+      top: Math.max(0, scrollTarget),
+      behavior: "smooth",
+    });
   }
 
   function saveRoomSession(nextRoomId, nextName) {
@@ -880,16 +899,32 @@ function App() {
             </div>
 
             <div className="hero-copy hero-copy-centered">
-              <p className="eyebrow">REAL-TIME WATCH PARTIES</p>
+              <p className="eyebrow">WATCH TOGETHER, ANYWHERE</p>
               <h1>Watch together, and make distance feel smaller.</h1>
-              <p className="hero-description">
-                Ready to start? Create a room or join one with a code.
-              </p>
+              <button type="button" className="hero-start-button" onClick={scrollToSetupCard}>
+                Start now
+              </button>
+
+              <div className="supported-platforms">
+                <p className="supported-platforms-title">
+                  Supports HTML5 video players including:
+                </p>
+                <div className="supported-platforms-row" aria-label="Supported platforms">
+                  <img src={youtubeLogo} alt="YouTube" className="supported-platform-logo logo-youtube" draggable="false" />
+                  <img src={twitchLogo} alt="Twitch" className="supported-platform-logo logo-twitch" draggable="false" />
+                  <img src={netflixLogo} alt="Netflix" className="supported-platform-logo logo-netflix" draggable="false" />
+                  <img src={tiktokLogo} alt="TikTok" className="supported-platform-logo logo-tiktok" draggable="false" />
+                  <img src={html5Logo} alt="HTML5" className="supported-platform-logo logo-html5" draggable="false" />
+                </div>
+                <p className="supported-platform-note">
+                  *Availability may vary depending on the platform’s policies and technical restrictions.
+                </p>
+              </div>
 
             </div>
           </section>
 
-          <section className="setup-card">
+          <section className="setup-card" ref={setupCardRef}>
             <div className="setup-heading">
               <div>
                 <p className="section-kicker">START WATCHING</p>
@@ -970,18 +1005,12 @@ function App() {
                     ? "Creating room…"
                     : "Joining room…"
                   : roomMode === "create"
-                    ? "Create private room"
+                    ? "Create room"
                     : "Join room"}
               </button>
             </div>
 
             {notice.text && <div className={`notice ${notice.type}`}>{notice.text}</div>}
-
-            <p className="setup-footnote">
-              Create a room, share the code, and bring everyone into one synchronized
-              watch party. TogetherScreen is designed for simple, private, and
-              long-distance movie nights.
-            </p>
           </section>
 
           <section className="landing-explain">
@@ -1024,6 +1053,10 @@ function App() {
               ))}
             </div>
           </section>
+
+          <footer className="landing-footer">
+            <p>© 2026 TogetherScreen. All rights reserved.</p>
+          </footer>
         </main>
       ) : (
         <main className="room-page">
