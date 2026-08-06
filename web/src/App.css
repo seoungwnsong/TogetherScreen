@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
+
 :root {
   --bg: #050505;
   --surface: #111111;
@@ -2906,7 +2908,7 @@ input:focus-visible {
 
 /* v3 update: separate glowing network overlay, Aptos body text, Disney+-style feature cards */
 :root {
-  --body-font: Aptos, "Aptos", "Inter", "Avenir Next", Arial, sans-serif;
+  --body-font: "Inter", "Avenir Next", Arial, sans-serif;
   --condensed-font: "Avenir Next Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
 }
 
@@ -3897,5 +3899,827 @@ input:focus-visible {
   .setup-card::after {
     width: 100%;
     height: 1px;
+  }
+}
+
+/* v13 update: full-width boundary bar like Disney+ */
+.setup-card {
+  margin-top: 122px;
+}
+
+.setup-card::before {
+  left: 50%;
+  top: -54px;
+  transform: translateX(-50%);
+  width: 100vw;
+  height: 86px;
+  border-radius: 0;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(122, 11, 18, 0.52) 0%,
+      rgba(116, 11, 18, 0.46) 20%,
+      rgba(88, 9, 14, 0.34) 48%,
+      rgba(30, 8, 10, 0.16) 76%,
+      rgba(5, 5, 5, 0) 100%
+    ),
+    radial-gradient(
+      ellipse at center,
+      rgba(229, 9, 20, 0.28) 0%,
+      rgba(229, 9, 20, 0.16) 28%,
+      rgba(229, 9, 20, 0.06) 48%,
+      rgba(229, 9, 20, 0) 74%
+    );
+  opacity: 0.98;
+}
+
+.setup-card::after {
+  left: 50%;
+  top: -1px;
+  transform: translateX(-50%);
+  width: 100vw;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(229, 9, 20, 0) 0%,
+    rgba(229, 9, 20, 0.12) 14%,
+    rgba(229, 9, 20, 0.32) 50%,
+    rgba(229, 9, 20, 0.12) 86%,
+    rgba(229, 9, 20, 0) 100%
+  );
+  opacity: 0.75;
+}
+
+@media (max-width: 1024px) {
+  .setup-card {
+    margin-top: 104px;
+  }
+
+  .setup-card::before {
+    top: -48px;
+    width: 100vw;
+    height: 78px;
+  }
+
+  .setup-card::after {
+    width: 100vw;
+  }
+}
+
+@media (max-width: 720px) {
+  .setup-card {
+    margin-top: 86px;
+  }
+
+  .setup-card::before {
+    top: -36px;
+    width: 100vw;
+    height: 58px;
+  }
+
+  .setup-card::after {
+    width: 100vw;
+  }
+}
+
+/* v14 correction: real full-width divider instead of a card pseudo-element */
+.setup-card::before,
+.setup-card::after {
+  display: none;
+  content: none;
+}
+
+.landing-divider {
+  position: relative;
+  z-index: 3;
+  width: 100vw;
+  height: 76px;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  overflow: hidden;
+  background:
+    linear-gradient(
+      90deg,
+      #25070a 0%,
+      #4f0b11 22%,
+      #6b0d15 50%,
+      #4f0b11 78%,
+      #25070a 100%
+    );
+  border-top: 1px solid rgba(255, 58, 68, 0.18);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.62);
+  box-shadow:
+    inset 0 16px 34px rgba(255, 30, 40, 0.08),
+    inset 0 -20px 34px rgba(0, 0, 0, 0.26);
+}
+
+.landing-divider::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(255, 38, 48, 0.13) 0%,
+      rgba(255, 38, 48, 0.055) 38%,
+      rgba(255, 38, 48, 0) 72%
+    );
+  pointer-events: none;
+}
+
+.landing-divider-inner {
+  width: min(1320px, calc(100% - 40px));
+  height: 100%;
+  margin: 0 auto;
+}
+
+.setup-card {
+  margin-top: 68px;
+}
+
+@media (max-width: 1024px) {
+  .landing-divider {
+    height: 66px;
+  }
+
+  .setup-card {
+    margin-top: 58px;
+  }
+}
+
+@media (max-width: 720px) {
+  .landing-divider {
+    height: 52px;
+  }
+
+  .landing-divider-inner {
+    width: calc(100% - 24px);
+  }
+
+  .setup-card {
+    margin-top: 46px;
+  }
+}
+
+/* v15 update: make divider about double thickness and extend it upward */
+.landing-divider {
+  height: 152px;
+  margin-top: -76px;
+  box-shadow:
+    inset 0 24px 46px rgba(255, 30, 40, 0.1),
+    inset 0 -26px 38px rgba(0, 0, 0, 0.3);
+}
+
+.landing-divider::before {
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(255, 38, 48, 0.18) 0%,
+      rgba(255, 38, 48, 0.08) 42%,
+      rgba(255, 38, 48, 0) 74%
+    );
+}
+
+.setup-card {
+  margin-top: 54px;
+}
+
+@media (max-width: 1024px) {
+  .landing-divider {
+    height: 132px;
+    margin-top: -66px;
+  }
+
+  .setup-card {
+    margin-top: 46px;
+  }
+}
+
+@media (max-width: 720px) {
+  .landing-divider {
+    height: 96px;
+    margin-top: -48px;
+  }
+
+  .setup-card {
+    margin-top: 38px;
+  }
+}
+
+/* v16 update: Disney+-style download banner divider */
+.landing-divider {
+  position: relative;
+  z-index: 3;
+  width: 100vw;
+  min-height: 196px;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  padding: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at center, rgba(0, 117, 155, 0.34) 0%, rgba(0, 117, 155, 0.12) 28%, rgba(0, 0, 0, 0) 60%),
+    linear-gradient(90deg, #063042 0%, #0b5a6d 18%, #0f6b80 50%, #0b5a6d 82%, #063042 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.35);
+  box-shadow:
+    inset 0 26px 52px rgba(0, 0, 0, 0.14),
+    inset 0 -18px 34px rgba(0, 18, 28, 0.28);
+}
+
+.landing-divider::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(1, 20, 28, 0) 0%, rgba(1, 20, 28, 0.08) 14%, rgba(1, 20, 28, 0) 28%, rgba(1, 20, 28, 0.08) 50%, rgba(1, 20, 28, 0) 72%, rgba(1, 20, 28, 0.08) 86%, rgba(1, 20, 28, 0) 100%);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.landing-divider-inner {
+  width: min(1500px, calc(100% - 96px));
+  min-height: 196px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 44px;
+  position: relative;
+  z-index: 1;
+}
+
+.landing-divider-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.landing-divider-logo {
+  width: 280px;
+  height: auto;
+  object-fit: contain;
+}
+
+.landing-divider-badge {
+  width: 78px;
+  height: 78px;
+  object-fit: contain;
+}
+
+.landing-divider-copy {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: clamp(1.55rem, 2vw, 2.05rem);
+  font-weight: 800;
+  line-height: 1.28;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
+.landing-divider-button {
+  min-width: 300px;
+  min-height: 74px;
+  padding: 0 34px;
+  border: 0;
+  border-radius: 14px;
+  background: #42c8e8;
+  color: #071216;
+  font-family: var(--condensed-font);
+  font-size: 1.08rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.14);
+  transition: transform 0.18s ease, filter 0.18s ease;
+}
+
+.landing-divider-button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+}
+
+.landing-divider-button:active {
+  transform: translateY(0);
+}
+
+.setup-card {
+  margin-top: 78px;
+}
+
+@media (max-width: 1200px) {
+  .landing-divider-inner {
+    width: min(1360px, calc(100% - 72px));
+    gap: 28px;
+  }
+
+  .landing-divider-logo {
+    width: 236px;
+  }
+
+  .landing-divider-copy {
+    font-size: 1.45rem;
+  }
+
+  .landing-divider-button {
+    min-width: 260px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .landing-divider {
+    min-height: 220px;
+  }
+
+  .landing-divider-inner {
+    width: calc(100% - 48px);
+    min-height: 220px;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    gap: 18px;
+    padding: 26px 0;
+  }
+
+  .landing-divider-brand {
+    justify-content: center;
+  }
+
+  .landing-divider-copy {
+    max-width: 860px;
+  }
+
+  .landing-divider-button {
+    min-width: 300px;
+    min-height: 68px;
+  }
+
+  .setup-card {
+    margin-top: 62px;
+  }
+}
+
+@media (max-width: 720px) {
+  .landing-divider {
+    min-height: 200px;
+  }
+
+  .landing-divider-inner {
+    width: calc(100% - 28px);
+    min-height: 200px;
+    gap: 16px;
+  }
+
+  .landing-divider-brand {
+    gap: 12px;
+  }
+
+  .landing-divider-logo {
+    width: 190px;
+  }
+
+  .landing-divider-badge {
+    width: 60px;
+    height: 60px;
+  }
+
+  .landing-divider-copy {
+    font-size: 1.1rem;
+    line-height: 1.35;
+  }
+
+  .landing-divider-button {
+    min-width: 228px;
+    min-height: 58px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+  }
+
+  .setup-card {
+    margin-top: 48px;
+  }
+}
+
+/* v17 update: use combined promo image, smaller copy, black button, red divider like before */
+.landing-divider {
+  min-height: 168px;
+  background:
+    radial-gradient(circle at center, rgba(173, 18, 28, 0.42) 0%, rgba(130, 12, 20, 0.24) 34%, rgba(0, 0, 0, 0) 68%),
+    linear-gradient(90deg, #23070b 0%, #5c0b12 18%, #861018 50%, #5c0b12 82%, #23070b 100%);
+  border-top: 1px solid rgba(255, 70, 82, 0.16);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.42);
+  box-shadow:
+    inset 0 18px 34px rgba(255, 64, 82, 0.08),
+    inset 0 -18px 32px rgba(0, 0, 0, 0.28);
+}
+
+.landing-divider::before {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(30, 6, 10, 0.06) 18%, rgba(255, 255, 255, 0) 36%, rgba(30, 6, 10, 0.06) 58%, rgba(255, 255, 255, 0) 76%, rgba(30, 6, 10, 0.06) 100%);
+  opacity: 0.42;
+}
+
+.landing-divider-inner {
+  width: min(1540px, calc(100% - 92px));
+  min-height: 168px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 34px;
+}
+
+.landing-divider-brand {
+  display: flex;
+  align-items: center;
+}
+
+.landing-divider-promo {
+  width: 420px;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.landing-divider-copy {
+  font-size: clamp(1rem, 1.25vw, 1.2rem);
+  font-weight: 800;
+  line-height: 1.38;
+  letter-spacing: -0.01em;
+  text-align: left;
+}
+
+.landing-divider-button {
+  min-width: 250px;
+  min-height: 56px;
+  padding: 0 28px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: #050505;
+  color: #ffffff;
+  font-size: 0.96rem;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+.landing-divider-button:hover {
+  filter: brightness(1.08);
+}
+
+@media (max-width: 1200px) {
+  .landing-divider-inner {
+    width: min(1380px, calc(100% - 60px));
+    gap: 24px;
+  }
+
+  .landing-divider-promo {
+    width: 350px;
+  }
+
+  .landing-divider-copy {
+    font-size: 0.98rem;
+  }
+
+  .landing-divider-button {
+    min-width: 220px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .landing-divider {
+    min-height: 220px;
+  }
+
+  .landing-divider-inner {
+    width: calc(100% - 40px);
+    min-height: 220px;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 14px;
+    padding: 22px 0;
+  }
+
+  .landing-divider-promo {
+    width: min(420px, 100%);
+  }
+
+  .landing-divider-copy {
+    max-width: 760px;
+    text-align: center;
+    font-size: 1rem;
+  }
+
+  .landing-divider-button {
+    min-width: 240px;
+    min-height: 54px;
+  }
+}
+
+@media (max-width: 720px) {
+  .landing-divider {
+    min-height: 190px;
+  }
+
+  .landing-divider-inner {
+    width: calc(100% - 24px);
+    min-height: 190px;
+    gap: 12px;
+  }
+
+  .landing-divider-promo {
+    width: min(300px, 100%);
+  }
+
+  .landing-divider-copy {
+    font-size: 0.9rem;
+    line-height: 1.35;
+  }
+
+  .landing-divider-button {
+    min-width: 210px;
+    min-height: 50px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+  }
+}
+
+/* v18 update: red banner, dark logo, tighter centered layout, smaller copy, black button */
+.landing-divider {
+  min-height: 154px;
+  background:
+    radial-gradient(circle at center, rgba(255, 54, 54, 0.18) 0%, rgba(255, 54, 54, 0.08) 26%, rgba(255, 54, 54, 0) 58%),
+    linear-gradient(90deg, #2a060b 0%, #5b0b13 18%, #7c1018 50%, #5b0b13 82%, #2a060b 100%);
+  border-top: 1px solid rgba(255, 110, 110, 0.12);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.42);
+  box-shadow:
+    inset 0 14px 28px rgba(255, 72, 72, 0.06),
+    inset 0 -16px 26px rgba(0, 0, 0, 0.24);
+}
+
+.landing-divider::before {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(35, 7, 10, 0.06) 18%, rgba(255,255,255,0) 36%, rgba(35, 7, 10, 0.06) 58%, rgba(255,255,255,0) 76%, rgba(35, 7, 10, 0.06) 100%);
+  opacity: 0.36;
+}
+
+.landing-divider-inner {
+  width: min(1220px, calc(100% - 88px));
+  min-height: 154px;
+  grid-template-columns: auto minmax(340px, 500px) auto;
+  gap: 26px;
+  justify-content: center;
+}
+
+.landing-divider-brand {
+  gap: 14px;
+  justify-self: center;
+}
+
+.landing-divider-logo {
+  width: 272px;
+  height: auto;
+  object-fit: contain;
+  filter: brightness(0) saturate(100%) opacity(0.92);
+}
+
+.landing-divider-badge {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+}
+
+.landing-divider-copy {
+  max-width: 500px;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: clamp(0.92rem, 1vw, 1rem);
+  font-weight: 800;
+  line-height: 1.38;
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+
+.landing-divider-button {
+  min-width: 250px;
+  min-height: 50px;
+  padding: 0 28px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: #070707;
+  color: #ffffff;
+  font-size: 0.95rem;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.18);
+}
+
+.landing-divider-button:hover {
+  filter: brightness(1.08);
+}
+
+@media (max-width: 1200px) {
+  .landing-divider-inner {
+    width: min(1120px, calc(100% - 56px));
+    grid-template-columns: auto minmax(300px, 420px) auto;
+    gap: 20px;
+  }
+
+  .landing-divider-logo {
+    width: 236px;
+  }
+
+  .landing-divider-badge {
+    width: 50px;
+    height: 50px;
+  }
+
+  .landing-divider-copy {
+    font-size: 0.9rem;
+  }
+
+  .landing-divider-button {
+    min-width: 220px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .landing-divider {
+    min-height: 210px;
+  }
+
+  .landing-divider-inner {
+    width: calc(100% - 40px);
+    min-height: 210px;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 14px;
+    padding: 20px 0;
+  }
+
+  .landing-divider-brand {
+    justify-content: center;
+  }
+
+  .landing-divider-copy {
+    max-width: 700px;
+    font-size: 0.98rem;
+  }
+
+  .landing-divider-button {
+    min-width: 240px;
+    min-height: 50px;
+  }
+}
+
+@media (max-width: 720px) {
+  .landing-divider {
+    min-height: 184px;
+  }
+
+  .landing-divider-inner {
+    width: calc(100% - 24px);
+    min-height: 184px;
+    gap: 12px;
+  }
+
+  .landing-divider-brand {
+    gap: 10px;
+  }
+
+  .landing-divider-logo {
+    width: 188px;
+  }
+
+  .landing-divider-badge {
+    width: 44px;
+    height: 44px;
+  }
+
+  .landing-divider-copy {
+    font-size: 0.84rem;
+    line-height: 1.35;
+  }
+
+  .landing-divider-button {
+    min-width: 206px;
+    min-height: 46px;
+    border-radius: 10px;
+    font-size: 0.88rem;
+  }
+}
+
+
+/* v19 update: load Inter, add the free note, and reduce feature/FAQ typography */
+html,
+body,
+#root,
+.app-shell,
+.app-shell input,
+.app-shell textarea,
+.app-shell select {
+  font-family: "Inter", "Avenir Next", Arial, sans-serif;
+}
+
+/* Keep the uppercase action buttons in the narrow display style. */
+.hero-start-button,
+.landing-divider-button,
+.primary-cta,
+.generate-button,
+.mode-switch button,
+.input-action {
+  font-family: var(--condensed-font);
+}
+
+.landing-divider-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.landing-divider-button {
+  min-height: 46px;
+}
+
+.landing-divider-free {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1;
+  text-align: center;
+}
+
+/* Smaller section heading: “One room. One timeline. Everyone together.” */
+.landing-explain .section-heading h2 {
+  font-size: clamp(1.75rem, 2.8vw, 2.45rem);
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+}
+
+/* Smaller feature titles and descriptions. */
+.why-card h3 {
+  font-size: clamp(1.18rem, 1.6vw, 1.42rem);
+  line-height: 1.22;
+  letter-spacing: -0.025em;
+}
+
+.why-card p {
+  font-size: clamp(0.86rem, 1vw, 0.96rem);
+  line-height: 1.58;
+}
+
+/* Smaller FAQ heading and FAQ text. */
+.faq-heading h2 {
+  font-size: clamp(1.75rem, 2.8vw, 2.4rem);
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+}
+
+.faq-item summary {
+  font-size: 0.98rem;
+}
+
+.faq-answer p {
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+@media (max-width: 1024px) {
+  .landing-divider-cta {
+    gap: 8px;
+  }
+
+  .landing-divider-button {
+    min-height: 46px;
+  }
+
+  .landing-divider-free {
+    font-size: 0.74rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .landing-divider-cta {
+    gap: 7px;
+  }
+
+  .landing-divider-button {
+    min-height: 44px;
+  }
+
+  .landing-divider-free {
+    font-size: 0.7rem;
+  }
+
+  .landing-explain .section-heading h2,
+  .faq-heading h2 {
+    font-size: 1.65rem;
+  }
+
+  .why-card h3 {
+    font-size: 1.15rem;
+  }
+
+  .why-card p,
+  .faq-answer p {
+    font-size: 0.84rem;
+  }
+
+  .faq-item summary {
+    font-size: 0.92rem;
   }
 }

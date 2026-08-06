@@ -9,6 +9,7 @@ import twitchLogo from "./assets/logo-twitch.png";
 import netflixLogo from "./assets/logo-netflix.png";
 import tiktokLogo from "./assets/logo-tiktok.png";
 import html5Logo from "./assets/logo-html5.png";
+import chromeExtensionBadge from "./assets/chrome-extension-badge.png";
 
 const SERVER_URL =
   import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
@@ -921,6 +922,38 @@ function App() {
                 </p>
               </div>
 
+            </div>
+          </section>
+
+          <section className="landing-divider">
+            <div className="landing-divider-inner">
+              <div className="landing-divider-brand">
+                <img
+                  src={togetherScreenLogo}
+                  alt="Together Screen"
+                  className="landing-divider-logo"
+                  draggable="false"
+                />
+                <img
+                  src={chromeExtensionBadge}
+                  alt="Chrome extension"
+                  className="landing-divider-badge"
+                  draggable="false"
+                />
+              </div>
+
+              <p className="landing-divider-copy">
+                Download Together Screen for free from the Chrome Web Store
+                <br />
+                and start watching together.
+              </p>
+
+              <div className="landing-divider-cta">
+                <button type="button" className="landing-divider-button">
+                  Start now
+                </button>
+                <p className="landing-divider-free">For free.</p>
+              </div>
             </div>
           </section>
 
