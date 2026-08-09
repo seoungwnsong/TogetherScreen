@@ -6,46 +6,80 @@
     <title>TogetherScreen</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
+
   <body>
     <main class="popup-shell">
       <header class="popup-header">
-        <div class="wordmark">Together<span>Screen</span></div>
-        <span id="connectionDot" class="connection-dot" title="Server status"></span>
+        <img
+          class="brand-wordmark"
+          src="icons/together-screen-wordmark.png"
+          alt="Together Screen"
+          draggable="false"
+        />
+        <span id="connectionDot" class="connection-dot" title="Offline"></span>
       </header>
 
       <section id="videoStatus" class="video-status">
-        <div>
+        <div class="video-status-copy">
           <p class="eyebrow">ACTIVE TAB</p>
           <strong id="videoStatusTitle">Checking for video…</strong>
           <small id="videoStatusDetail">Open a page with an HTML5 video.</small>
         </div>
-        <button id="rescanButton" class="icon-button" type="button" title="Rescan video">↻</button>
+
+        <button
+          id="rescanButton"
+          class="icon-button"
+          type="button"
+          title="Rescan video"
+          aria-label="Rescan video"
+        >
+          ↻
+        </button>
       </section>
 
-      <section id="setupView" class="card">
-        <div class="mode-switch" role="tablist">
-          <button id="createModeButton" type="button" class="active">Create</button>
-          <button id="joinModeButton" type="button">Join</button>
+      <section id="setupView" class="card setup-card">
+        <div class="mode-switch" role="tablist" aria-label="Room action">
+          <button id="createModeButton" type="button" class="active">CREATE</button>
+          <button id="joinModeButton" type="button">JOIN</button>
         </div>
 
-        <label class="floating-field">
-          <input id="nameInput" type="text" maxlength="30" placeholder=" " autocomplete="name" />
-          <span>Name</span>
-        </label>
-
-        <div class="room-code-row">
+        <div class="form-stack">
           <label class="floating-field">
-            <input id="roomInput" type="text" maxlength="40" placeholder=" " autocomplete="off" />
-            <span>Room code</span>
+            <input
+              id="nameInput"
+              type="text"
+              maxlength="30"
+              placeholder=" "
+              autocomplete="name"
+            />
+            <span>Name</span>
           </label>
-          <button id="generateButton" class="secondary-button" type="button">Generate</button>
+
+          <div class="room-code-row">
+            <label class="floating-field">
+              <input
+                id="roomInput"
+                type="text"
+                maxlength="40"
+                placeholder=" "
+                autocomplete="off"
+              />
+              <span>Room code</span>
+            </label>
+
+            <button id="generateButton" class="secondary-button" type="button">
+              Generate
+            </button>
+          </div>
         </div>
 
-        <button id="submitButton" class="primary-button" type="button">Create room</button>
+        <button id="submitButton" class="primary-button" type="button">
+          Create room
+        </button>
         <p id="setupMessage" class="message" role="status"></p>
       </section>
 
-      <section id="roomView" class="card hidden">
+      <section id="roomView" class="card room-card hidden">
         <div class="room-heading">
           <div>
             <p class="eyebrow">ROOM</p>
@@ -76,12 +110,15 @@
           <button id="startButton" class="primary-button" type="button">Start together</button>
         </div>
 
-        <button id="copyInviteButton" class="text-button" type="button">Copy invite link</button>
+        <button id="copyInviteButton" class="text-button" type="button">
+          Copy invite link
+        </button>
         <button id="leaveButton" class="danger-button" type="button">Leave room</button>
         <p id="roomMessage" class="message" role="status"></p>
       </section>
 
-      <footer>
+      <footer class="popup-footer">
+        <span class="footer-line" aria-hidden="true"></span>
         <span id="lastEvent">Waiting for a video tab</span>
       </footer>
     </main>
