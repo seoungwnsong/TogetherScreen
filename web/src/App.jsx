@@ -921,15 +921,6 @@ function App() {
             draggable="false"
           />
         </button>
-
-        <div
-          className="header-status"
-          aria-live="polite"
-          aria-label={connected ? "Connected" : "Offline"}
-          title={connected ? "Connected" : "Offline"}
-        >
-          <span className={`status-dot ${connected ? "online" : "offline"}`} />
-        </div>
       </header>
 
       {reconnecting && (

@@ -65,31 +65,6 @@
   font-size: 1.15rem;
 }
 
-.header-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-soft);
-  font-size: 0.84rem;
-  font-weight: 600;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-}
-
-.status-dot.online {
-  background: var(--success);
-  box-shadow: 0 0 12px rgba(70, 211, 105, 0.75);
-}
-
-.status-dot.offline {
-  background: var(--danger);
-  box-shadow: 0 0 12px rgba(255, 92, 103, 0.6);
-}
-
 .connection-banner {
   position: fixed;
   top: 84px;
@@ -1286,14 +1261,6 @@ input:focus-visible {
   width: 42px;
   height: 42px;
   filter: drop-shadow(0 10px 24px rgba(229, 9, 20, 0.32));
-}
-
-.header-status {
-  min-width: 18px;
-  min-height: 18px;
-  justify-content: center;
-  gap: 0;
-  font-size: 0;
 }
 
 .landing-page {
@@ -2625,10 +2592,11 @@ input:focus-visible {
 .hero-copy-centered h1 {
   max-width: 680px;
   margin: 0 0 22px;
+  font-family: var(--body-font);
   font-size: clamp(2.85rem, 3.85vw, 4.25rem);
   line-height: 1.02;
   letter-spacing: -0.052em;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .hero-copy-centered .hero-description {
@@ -2908,7 +2876,7 @@ input:focus-visible {
 
 /* v3 update: separate glowing network overlay, Aptos body text, Disney+-style feature cards */
 :root {
-  --body-font: "Inter", "Avenir Next", Arial, sans-serif;
+  --body-font: "Segoe UI", "Avenir Next", sans-serif;
   --condensed-font: "Avenir Next Condensed", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
 }
 
@@ -4171,7 +4139,7 @@ input:focus-visible {
   margin: 0;
   color: rgba(255, 255, 255, 0.96);
   font-size: clamp(1.55rem, 2vw, 2.05rem);
-  font-weight: 800;
+  font-weight: 500;
   line-height: 1.28;
   letter-spacing: -0.02em;
   text-align: center;
@@ -4340,7 +4308,7 @@ input:focus-visible {
 
 .landing-divider-copy {
   font-size: clamp(1rem, 1.25vw, 1.2rem);
-  font-weight: 800;
+  font-weight: 500;
   line-height: 1.38;
   letter-spacing: -0.01em;
   text-align: left;
@@ -4487,7 +4455,7 @@ input:focus-visible {
   max-width: 500px;
   color: rgba(255, 255, 255, 0.96);
   font-size: clamp(0.92rem, 1vw, 1rem);
-  font-weight: 800;
+  font-weight: 500;
   line-height: 1.38;
   letter-spacing: -0.01em;
   text-align: center;
@@ -4652,18 +4620,21 @@ body,
 
 /* Smaller feature titles and descriptions. */
 .why-card h3 {
+  font-family: var(--body-font);
   font-size: clamp(1.18rem, 1.6vw, 1.42rem);
   line-height: 1.22;
   letter-spacing: -0.025em;
 }
 
 .why-card p {
+  font-family: var(--body-font);
   font-size: clamp(0.86rem, 1vw, 0.96rem);
   line-height: 1.58;
 }
 
 /* Smaller FAQ heading and FAQ text. */
 .faq-heading h2 {
+  font-family: var(--body-font);
   font-size: clamp(1.75rem, 2.8vw, 2.4rem);
   line-height: 1.15;
   letter-spacing: -0.04em;
@@ -4773,7 +4744,7 @@ body,
   color: #ffffff;
   font-family: var(--body-font);
   font-size: clamp(1.75rem, 2.8vw, 3rem);
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.14;
   letter-spacing: -0.035em;
 }
