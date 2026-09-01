@@ -657,14 +657,16 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const hasReadyParticipant = Array.from(room.users.values()).some(
-      (user) => user.socketId && user.ready
+    const connectedUsers = Array.from(room.users.values()).filter(
+      (user) => user.socketId
     );
+    const allMembersReady =
+      connectedUsers.length > 0 && connectedUsers.every((user) => user.ready);
 
-    if (!hasReadyParticipant) {
+    if (!allMembersReady) {
       reply(callback, {
         success: false,
-        message: "No ready participants to restart.",
+        message: "Not everyone is ready yet.",
       });
       return;
     }

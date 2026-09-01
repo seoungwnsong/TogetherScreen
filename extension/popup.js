@@ -149,11 +149,13 @@ function render(state) {
   elements.readyCount.textContent = `${state.readyCount}/${state.userCount}`;
   elements.yourStatus.textContent = state.ready ? "Ready" : "Not ready";
   elements.readyButton.textContent = state.ready ? "Cancel ready" : "Ready";
-  elements.startButton.disabled = !state.isHost || !state.readyCount;
+  const allMembersReady =
+    state.userCount > 0 && state.readyCount === state.userCount;
+  elements.startButton.disabled = !state.isHost || !allMembersReady;
   elements.startButton.title = state.isHost
-    ? state.readyCount
+    ? allMembersReady
       ? "Restart every Ready participant's video from 0:00"
-      : "No one is ready yet"
+      : "Waiting for everyone to be ready"
     : "Only the host can restart together";
   renderMembers(state.users);
   renderFollowPrompt(state.followPrompt);

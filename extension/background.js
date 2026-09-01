@@ -157,6 +157,16 @@ function currentUser() {
   );
 }
 
+function getConnectedUsers() {
+  const users = Array.isArray(state.room?.users) ? state.room.users : [];
+  return users.filter((user) => user.connected);
+}
+
+function isEveryoneReady() {
+  const connectedUsers = getConnectedUsers();
+  return connectedUsers.length > 0 && connectedUsers.every((user) => user.ready);
+}
+
 function snapshot() {
   const users = Array.isArray(state.room?.users) ? state.room.users : [];
   const connectedUsers = users.filter((user) => user.connected);
@@ -403,12 +413,16 @@ async function toggleReady() {
     : { success: false, message: "Could not update ready status." };
 }
 
-// Restarts playback (seek to 0:00 + play) for every Ready participant in the
-// room. Host-only. Non-ready participants are untouched — see the server's
-// emitToReadyParticipants() for the actual gating.
+// Restarts playback (seek to 0:00 + play) for every participant in the room.
+// Host-only, and only sent once every connected participant is Ready — the
+// server re-checks this too (see restart-together) before broadcasting.
 async function restartTogether() {
   if (!state.joined || !currentUser()?.isHost) {
     return { success: false, message: "Only the host can restart playback." };
+  }
+
+  if (!isEveryoneReady()) {
+    return { success: false, message: "Not everyone is ready yet." };
   }
 
   return emitWithAck("restart-together", { roomId: state.roomId });
