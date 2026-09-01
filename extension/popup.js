@@ -1,6 +1,5 @@
 "use strict";
 
-const CONFIG = globalThis.TOGETHER_SCREEN_CONFIG;
 const FORM_STORAGE_KEY = "togetherScreenExtensionForm";
 
 const elements = {
@@ -23,10 +22,13 @@ const elements = {
   readyCount: document.getElementById("readyCount"),
   yourStatus: document.getElementById("yourStatus"),
   memberList: document.getElementById("memberList"),
-  differentVideoWarning: document.getElementById("differentVideoWarning"),
+  followPrompt: document.getElementById("followPrompt"),
+  followPromptTitle: document.getElementById("followPromptTitle"),
+  followPromptMessage: document.getElementById("followPromptMessage"),
+  followHostButton: document.getElementById("followHostButton"),
+  dismissPromptButton: document.getElementById("dismissPromptButton"),
   readyButton: document.getElementById("readyButton"),
   startButton: document.getElementById("startButton"),
-  copyInviteButton: document.getElementById("copyInviteButton"),
   leaveButton: document.getElementById("leaveButton"),
   roomMessage: document.getElementById("roomMessage"),
   lastEvent: document.getElementById("lastEvent"),
@@ -87,18 +89,24 @@ function renderVideo(video = {}) {
   }
 }
 
-function renderVideoWarning(users = []) {
-  // Compare Ready participants only; "No video detected" never counts as
-  // a mismatch, and a single Ready video never triggers the warning.
-  const readyWithVideo = users.filter(
-    (user) => user.ready && user.videoFound && user.videoId
-  );
+function sanitizeFollowUrl(value) {
+  if (typeof value !== "string" || !value) return "";
 
-  const different =
-    readyWithVideo.length >= 2 &&
-    readyWithVideo.some((user) => user.videoId !== readyWithVideo[0].videoId);
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";
+  } catch {
+    return "";
+  }
+}
 
-  elements.differentVideoWarning.classList.toggle("hidden", !different);
+function renderFollowPrompt(prompt) {
+  const visible = Boolean(prompt);
+  elements.followPrompt.classList.toggle("hidden", !visible);
+  if (!visible) return;
+
+  elements.followPromptTitle.textContent = prompt.title;
+  elements.followPromptMessage.textContent = prompt.message;
 }
 
 function renderMembers(users = []) {
@@ -130,7 +138,7 @@ function render(state) {
   elements.roomView.classList.toggle("hidden", !state.joined);
 
   if (!state.joined) {
-    elements.differentVideoWarning.classList.add("hidden");
+    elements.followPrompt.classList.add("hidden");
     if (state.error) showMessage(elements.setupMessage, state.error);
     return;
   }
@@ -148,7 +156,7 @@ function render(state) {
       : "No one is ready yet"
     : "Only the host can restart together";
   renderMembers(state.users);
-  renderVideoWarning(state.users);
+  renderFollowPrompt(state.followPrompt);
 
   if (state.error) showMessage(elements.roomMessage, state.error);
 }
@@ -260,14 +268,27 @@ elements.startButton.addEventListener("click", async () => {
   }
 });
 
-elements.copyInviteButton.addEventListener("click", async () => {
-  if (!latestState?.roomId) return;
+elements.followHostButton.addEventListener("click", async () => {
+  const safeUrl = sanitizeFollowUrl(latestState?.followPrompt?.followUrl);
+  if (!safeUrl) return;
 
-  const inviteUrl = `${CONFIG.WEB_APP_URL}/room/${encodeURIComponent(latestState.roomId)}`;
-  await navigator.clipboard.writeText(
-    `Join my TogetherScreen room\n\nRoom: ${latestState.roomId}\n${inviteUrl}`
-  );
-  showMessage(elements.roomMessage, "Invite copied.", "success");
+  try {
+    if (Number.isInteger(activeTabId)) {
+      await chrome.tabs.update(activeTabId, { url: safeUrl });
+    } else {
+      await chrome.tabs.create({ url: safeUrl });
+    }
+  } catch {
+    await chrome.tabs.create({ url: safeUrl });
+  }
+
+  const response = await send({ type: "TS_DISMISS_FOLLOW_PROMPT" });
+  if (response?.state) render(response.state);
+});
+
+elements.dismissPromptButton.addEventListener("click", async () => {
+  const response = await send({ type: "TS_DISMISS_FOLLOW_PROMPT" });
+  if (response?.state) render(response.state);
 });
 
 elements.leaveButton.addEventListener("click", async () => {

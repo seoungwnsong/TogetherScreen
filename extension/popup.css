@@ -472,19 +472,6 @@ input:disabled {
   margin-top: 0;
 }
 
-.text-button {
-  width: 100%;
-  padding: 11px 0 4px;
-  background: transparent;
-  color: var(--soft);
-  font-size: 0.7rem;
-  font-weight: 700;
-}
-
-.text-button:hover:not(:disabled) {
-  color: #fff;
-}
-
 .popup-footer {
   display: flex;
   align-items: center;
@@ -539,24 +526,38 @@ input:disabled {
   animation: ts-refresh-spin 0.5s ease;
 }
 
-.video-warning {
+.follow-prompt {
   display: grid;
-  gap: 3px;
+  gap: 4px;
   margin-bottom: 12px;
-  padding: 9px 11px;
+  padding: 10px 11px 11px;
   border: 1px solid rgba(240, 27, 40, 0.32);
   border-radius: 9px;
   background: rgba(240, 27, 40, 0.09);
 }
 
-.video-warning strong {
+.follow-prompt strong {
   color: #ff8188;
+  font-family: var(--condensed-font);
   font-size: 0.72rem;
-  font-weight: 750;
+  font-weight: 800;
+  letter-spacing: 0.05em;
 }
 
-.video-warning span {
+.follow-prompt span {
   color: var(--soft);
   font-size: 0.68rem;
   line-height: 1.35;
+}
+
+.follow-prompt-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.follow-prompt-actions button {
+  min-height: 38px;
+  margin-top: 0;
 }

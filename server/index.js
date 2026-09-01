@@ -76,6 +76,20 @@ function makeParticipantId() {
   return randomUUID();
 }
 
+// Only http(s) survives — rejects javascript:/data:/file: and anything
+// malformed. Used for the host's Follow Host destination URL.
+function sanitizeFollowUrl(value) {
+  const trimmed = normalizeText(value, 500);
+  if (!trimmed) return "";
+
+  try {
+    const url = new URL(trimmed);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
 function isValidTime(value) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
@@ -138,6 +152,7 @@ function getRoomState(roomId) {
       joinedAt: user.joinedAt,
       videoId: user.videoId || "",
       videoFound: Boolean(user.videoFound),
+      followUrl: user.followUrl || "",
     })
   );
 
@@ -295,6 +310,7 @@ function addUserToRoom(socket, roomId, requestedParticipantId, name) {
       disconnectTimer: null,
       videoId: "",
       videoFound: false,
+      followUrl: "",
     };
     room.users.set(participantId, user);
   }
@@ -677,6 +693,15 @@ io.on("connection", (socket) => {
 
     user.videoId = normalizeText(event.videoId, 200);
     user.videoFound = Boolean(event.found);
+
+    // Follow Host only ever shares the host's destination — verified against
+    // the room's actual host assignment, never a client-declared isHost flag.
+    // Guests never get to publish a followUrl for others to navigate to.
+    user.followUrl =
+      room.hostParticipantId === socket.data.participantId
+        ? sanitizeFollowUrl(event.followUrl)
+        : "";
+
     sendRoomStatus(roomId);
   });
 

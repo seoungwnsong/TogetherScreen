@@ -21,6 +21,7 @@ const state = {
     duration: 0,
     paused: true,
     url: "",
+    followUrl: "",
   },
   error: "",
   lastEvent: "Waiting for a video tab",
@@ -31,21 +32,104 @@ let syncTimer = null;
 let keepAliveTimer = null;
 let lastReportedVideoId = null;
 let lastReportedVideoFound = null;
+let lastReportedFollowUrl = null;
 
-// Reports the minimal video identifier to the server so other participants
-// can tell whether Ready users are watching the same content. Only sends
-// when it actually changed to avoid spamming room-status broadcasts.
+// Tracks the host's videoId across room-status updates so a genuine host
+// video change (A -> B) can be told apart from a first detection, a rescan
+// of the same video, or a playback-only update (none of which touch
+// videoId). Reset per room session in leaveRoom().
+let hostVideoTracking = { known: false, videoId: "" };
+
+// The host videoId that a real "host changed video" transition was most
+// recently observed for. Drives the Follow Host prompt's title/message.
+let hostChangedToVideoId = "";
+
+// The host videoId the participant has already dismissed/followed the
+// prompt for, so it doesn't reappear until the host's video changes again.
+let followPromptDismissedFor = "";
+
+// Reports the minimal video-context to the server so other participants can
+// tell whether Ready users are watching the same content. Only the host's
+// followUrl is ever included — guests never broadcast their own browsing
+// URL. Only sends when something actually changed to avoid spamming
+// room-status broadcasts.
 function maybeReportVideoInfo() {
   if (!state.joined || !socket?.connected) return;
 
   const videoId = state.video.videoId || "";
   const found = Boolean(state.video.found);
+  const followUrl = currentUser()?.isHost ? state.video.followUrl || "" : "";
 
-  if (videoId === lastReportedVideoId && found === lastReportedVideoFound) return;
+  if (
+    videoId === lastReportedVideoId &&
+    found === lastReportedVideoFound &&
+    followUrl === lastReportedFollowUrl
+  ) {
+    return;
+  }
 
   lastReportedVideoId = videoId;
   lastReportedVideoFound = found;
-  socket.emit("video-info", { roomId: state.roomId, videoId, found });
+  lastReportedFollowUrl = followUrl;
+  socket.emit("video-info", { roomId: state.roomId, videoId, found, followUrl });
+}
+
+// Updates hostVideoTracking from the latest room-status and flags a genuine
+// host video change (never on first detection or an unchanged/empty video).
+function updateHostVideoTracking() {
+  const hostUser = state.room?.users?.find((user) => user.isHost);
+  const hostVideoId = hostUser?.videoFound ? hostUser.videoId || "" : "";
+
+  if (!hostVideoTracking.known) {
+    hostVideoTracking.known = true;
+    hostVideoTracking.videoId = hostVideoId;
+    return;
+  }
+
+  if (
+    hostVideoTracking.videoId &&
+    hostVideoId &&
+    hostVideoId !== hostVideoTracking.videoId
+  ) {
+    hostChangedToVideoId = hostVideoId;
+    // A new host video always gets a fresh chance to prompt, even if the
+    // previous one had been dismissed.
+    followPromptDismissedFor = "";
+  }
+
+  hostVideoTracking.videoId = hostVideoId;
+}
+
+// The single shared Follow Host prompt: null when nothing to show, otherwise
+// one of the two copy variants from the same underlying mismatch check
+// (me vs. the host, Ready participants only).
+function computeFollowPrompt() {
+  const me = currentUser();
+  if (!state.joined || !me?.ready || me.isHost) return null;
+
+  const hostUser = state.room?.users?.find((user) => user.isHost);
+  if (!hostUser?.connected) return null;
+
+  const hostVideoId = hostUser.videoFound ? hostUser.videoId || "" : "";
+  const hostFollowUrl = hostUser.followUrl || "";
+  const myVideoId = state.video.found ? state.video.videoId || "" : "";
+
+  if (!hostVideoId || !myVideoId || hostVideoId === myVideoId || !hostFollowUrl) {
+    return null;
+  }
+
+  if (followPromptDismissedFor === hostVideoId) return null;
+
+  const isHostChange = hostChangedToVideoId === hostVideoId;
+
+  return {
+    isHostChange,
+    title: isHostChange ? "HOST CHANGED VIDEO" : "DIFFERENT VIDEO DETECTED",
+    message: isHostChange
+      ? "Switch to the host's current video?"
+      : "The host is watching a different video.",
+    followUrl: hostFollowUrl,
+  };
 }
 
 function makeParticipantId() {
@@ -95,6 +179,7 @@ function snapshot() {
     video: { ...state.video },
     error: state.error,
     lastEvent: state.lastEvent,
+    followPrompt: computeFollowPrompt(),
     users: connectedUsers.map((user) => ({
       participantId: user.participantId,
       name: user.name,
@@ -212,6 +297,7 @@ async function applyRoomResponse(response, request) {
   state.room = response.room;
   state.error = "";
   state.lastEvent = `Joined ${state.roomId}`;
+  updateHostVideoTracking();
 
   await persistSession();
   updateHostSync();
@@ -292,6 +378,10 @@ async function leaveRoom() {
   state.lastEvent = "Left the room";
   lastReportedVideoId = null;
   lastReportedVideoFound = null;
+  lastReportedFollowUrl = null;
+  hostVideoTracking = { known: false, videoId: "" };
+  hostChangedToVideoId = "";
+  followPromptDismissedFor = "";
   await clearSession();
 
   return { success: true, state: snapshot() };
@@ -322,6 +412,14 @@ async function restartTogether() {
   }
 
   return emitWithAck("restart-together", { roomId: state.roomId });
+}
+
+// Dismisses the Follow Host prompt for whichever host video it's currently
+// showing for. Does not navigate, leave the room, or touch Ready state.
+function dismissFollowPrompt() {
+  const hostUser = state.room?.users?.find((user) => user.isHost);
+  followPromptDismissedFor = hostUser?.videoFound ? hostUser.videoId || "" : "";
+  return { success: true, state: snapshot() };
 }
 
 async function refreshVideo(tabId) {
@@ -434,6 +532,7 @@ function connectSocket() {
     if (!room || room.roomId !== state.roomId) return;
     state.room = room;
     state.error = "";
+    updateHostVideoTracking();
     updateHostSync();
   });
 
@@ -524,6 +623,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       case "TS_RESTART_TOGETHER":
         return restartTogether();
+
+      case "TS_DISMISS_FOLLOW_PROMPT":
+        return dismissFollowPrompt();
 
       case "TS_RESCAN_VIDEO":
         return refreshVideo(message.tabId);

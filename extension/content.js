@@ -34,32 +34,50 @@
     })[0];
   }
 
-  // Minimal stable identifier for cross-participant "same video?" comparisons.
+  // Minimal video-context for cross-participant comparisons: a stable
+  // opaque videoId for "same video?" checks, plus a sanitized navigable
+  // followUrl (host/pathname only, no tracking params) for Follow Host.
   // Deliberately separate from findBestVideo()/video-selection logic.
-  function computeVideoId() {
-    if (!activeVideo) return "";
+  // The extension only ever runs on http/https pages (see manifest
+  // content_scripts.matches), so followUrl can never carry an unsafe scheme.
+  function computeVideoContext() {
+    if (!activeVideo) return { videoId: "", followUrl: "" };
 
     try {
       const host = location.hostname.replace(/^www\./, "");
 
       if (host === "youtube.com" || host.endsWith(".youtube.com")) {
         const id = new URLSearchParams(location.search).get("v");
-        if (id) return `youtube:${id}`;
+        if (id) {
+          return {
+            videoId: `youtube:${id}`,
+            followUrl: `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`,
+          };
+        }
       }
 
       if (host === "youtu.be") {
         const id = location.pathname.split("/").filter(Boolean)[0];
-        if (id) return `youtube:${id}`;
+        if (id) {
+          return {
+            videoId: `youtube:${id}`,
+            followUrl: `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`,
+          };
+        }
       }
 
-      return `page:${host}${location.pathname}`;
+      return {
+        videoId: `page:${host}${location.pathname}`,
+        followUrl: `${location.origin}${location.pathname}`,
+      };
     } catch {
-      return "";
+      return { videoId: "", followUrl: "" };
     }
   }
 
   function videoSnapshot() {
     const video = activeVideo;
+    const context = computeVideoContext();
 
     return {
       found: Boolean(video),
@@ -71,7 +89,8 @@
       duration: video && Number.isFinite(video.duration) ? video.duration : 0,
       paused: video ? video.paused : true,
       url: location.href,
-      videoId: computeVideoId(),
+      videoId: context.videoId,
+      followUrl: context.followUrl,
     };
   }
 
