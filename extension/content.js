@@ -34,6 +34,30 @@
     })[0];
   }
 
+  // Minimal stable identifier for cross-participant "same video?" comparisons.
+  // Deliberately separate from findBestVideo()/video-selection logic.
+  function computeVideoId() {
+    if (!activeVideo) return "";
+
+    try {
+      const host = location.hostname.replace(/^www\./, "");
+
+      if (host === "youtube.com" || host.endsWith(".youtube.com")) {
+        const id = new URLSearchParams(location.search).get("v");
+        if (id) return `youtube:${id}`;
+      }
+
+      if (host === "youtu.be") {
+        const id = location.pathname.split("/").filter(Boolean)[0];
+        if (id) return `youtube:${id}`;
+      }
+
+      return `page:${host}${location.pathname}`;
+    } catch {
+      return "";
+    }
+  }
+
   function videoSnapshot() {
     const video = activeVideo;
 
@@ -47,6 +71,7 @@
       duration: video && Number.isFinite(video.duration) ? video.duration : 0,
       paused: video ? video.paused : true,
       url: location.href,
+      videoId: computeVideoId(),
     };
   }
 
@@ -281,6 +306,11 @@
 
         case "TS_START_TOGETHER":
           return startTogether(message.event || {});
+
+        case "TS_RESTART_TOGETHER":
+          // Reuses startTogether's existing 3-2-1 countdown overlay and its
+          // applyingRemoteUpdate guard, always seeking to 0:00.
+          return startTogether({ ...(message.event || {}), videoTime: 0 });
 
         default:
           return { success: false, message: "Unknown video request." };

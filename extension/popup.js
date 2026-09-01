@@ -23,6 +23,7 @@ const elements = {
   readyCount: document.getElementById("readyCount"),
   yourStatus: document.getElementById("yourStatus"),
   memberList: document.getElementById("memberList"),
+  differentVideoWarning: document.getElementById("differentVideoWarning"),
   readyButton: document.getElementById("readyButton"),
   startButton: document.getElementById("startButton"),
   copyInviteButton: document.getElementById("copyInviteButton"),
@@ -86,6 +87,20 @@ function renderVideo(video = {}) {
   }
 }
 
+function renderVideoWarning(users = []) {
+  // Compare Ready participants only; "No video detected" never counts as
+  // a mismatch, and a single Ready video never triggers the warning.
+  const readyWithVideo = users.filter(
+    (user) => user.ready && user.videoFound && user.videoId
+  );
+
+  const different =
+    readyWithVideo.length >= 2 &&
+    readyWithVideo.some((user) => user.videoId !== readyWithVideo[0].videoId);
+
+  elements.differentVideoWarning.classList.toggle("hidden", !different);
+}
+
 function renderMembers(users = []) {
   elements.memberList.replaceChildren();
 
@@ -115,6 +130,7 @@ function render(state) {
   elements.roomView.classList.toggle("hidden", !state.joined);
 
   if (!state.joined) {
+    elements.differentVideoWarning.classList.add("hidden");
     if (state.error) showMessage(elements.setupMessage, state.error);
     return;
   }
@@ -125,15 +141,14 @@ function render(state) {
   elements.readyCount.textContent = `${state.readyCount}/${state.userCount}`;
   elements.yourStatus.textContent = state.ready ? "Ready" : "Not ready";
   elements.readyButton.textContent = state.ready ? "Cancel ready" : "Ready";
-  elements.startButton.disabled = !state.isHost || !state.everyoneReady || !state.video?.found;
+  elements.startButton.disabled = !state.isHost || !state.readyCount;
   elements.startButton.title = state.isHost
-    ? state.everyoneReady
-      ? state.video?.found
-        ? "Start synchronized playback"
-        : "No video detected"
-      : "Everyone must be ready"
-    : "Only the host can start";
+    ? state.readyCount
+      ? "Restart every Ready participant's video from 0:00"
+      : "No one is ready yet"
+    : "Only the host can restart together";
   renderMembers(state.users);
+  renderVideoWarning(state.users);
 
   if (state.error) showMessage(elements.roomMessage, state.error);
 }
@@ -216,6 +231,11 @@ elements.roomInput.addEventListener("keydown", (event) => {
 });
 
 elements.rescanButton.addEventListener("click", async () => {
+  // Restart the spin every click, even if the detected video is unchanged.
+  elements.rescanButton.classList.remove("spin");
+  void elements.rescanButton.offsetWidth;
+  elements.rescanButton.classList.add("spin");
+
   const response = await send({ type: "TS_RESCAN_VIDEO", tabId: activeTabId });
   if (response?.state) render(response.state);
 });
@@ -230,13 +250,13 @@ elements.readyButton.addEventListener("click", async () => {
 
 elements.startButton.addEventListener("click", async () => {
   setPending(true);
-  const response = await send({ type: "TS_START_TOGETHER" });
+  const response = await send({ type: "TS_RESTART_TOGETHER" });
   setPending(false);
 
   if (!response?.success) {
-    showMessage(elements.roomMessage, response?.message || "Could not start playback.");
+    showMessage(elements.roomMessage, response?.message || "Could not restart playback.");
   } else {
-    showMessage(elements.roomMessage, "Playback scheduled.", "success");
+    showMessage(elements.roomMessage, "Restarting for Ready participants.", "success");
   }
 });
 

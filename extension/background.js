@@ -29,6 +29,24 @@ const state = {
 let socket = null;
 let syncTimer = null;
 let keepAliveTimer = null;
+let lastReportedVideoId = null;
+let lastReportedVideoFound = null;
+
+// Reports the minimal video identifier to the server so other participants
+// can tell whether Ready users are watching the same content. Only sends
+// when it actually changed to avoid spamming room-status broadcasts.
+function maybeReportVideoInfo() {
+  if (!state.joined || !socket?.connected) return;
+
+  const videoId = state.video.videoId || "";
+  const found = Boolean(state.video.found);
+
+  if (videoId === lastReportedVideoId && found === lastReportedVideoFound) return;
+
+  lastReportedVideoId = videoId;
+  lastReportedVideoFound = found;
+  socket.emit("video-info", { roomId: state.roomId, videoId, found });
+}
 
 function makeParticipantId() {
   return (
@@ -82,6 +100,8 @@ function snapshot() {
       name: user.name,
       ready: user.ready,
       isHost: user.isHost,
+      videoId: user.videoId || "",
+      videoFound: Boolean(user.videoFound),
     })),
   };
 }
@@ -172,6 +192,7 @@ function updateHostSync() {
     if (!response?.success || !response.video) return;
 
     state.video = { ...state.video, ...response.video };
+    maybeReportVideoInfo();
     socket.emit("sync-state", {
       roomId: state.roomId,
       time: Number(state.video.currentTime) || 0,
@@ -269,6 +290,8 @@ async function leaveRoom() {
   state.room = null;
   state.error = "";
   state.lastEvent = "Left the room";
+  lastReportedVideoId = null;
+  lastReportedVideoFound = null;
   await clearSession();
 
   return { success: true, state: snapshot() };
@@ -290,22 +313,15 @@ async function toggleReady() {
     : { success: false, message: "Could not update ready status." };
 }
 
-async function startTogether() {
+// Restarts playback (seek to 0:00 + play) for every Ready participant in the
+// room. Host-only. Non-ready participants are untouched — see the server's
+// emitToReadyParticipants() for the actual gating.
+async function restartTogether() {
   if (!state.joined || !currentUser()?.isHost) {
-    return { success: false, message: "Only the host can start playback." };
+    return { success: false, message: "Only the host can restart playback." };
   }
 
-  const videoResponse = await sendToControlledTab({ type: "TS_GET_VIDEO_STATE" });
-  if (!videoResponse?.success || !videoResponse.video?.found) {
-    return { success: false, message: "No playable video was detected in this tab." };
-  }
-
-  state.video = { ...state.video, ...videoResponse.video };
-
-  return emitWithAck("start-together", {
-    roomId: state.roomId,
-    time: Number(state.video.currentTime) || 0,
-  });
+  return emitWithAck("restart-together", { roomId: state.roomId });
 }
 
 async function refreshVideo(tabId) {
@@ -314,6 +330,7 @@ async function refreshVideo(tabId) {
 
   if (response?.video) {
     state.video = { ...state.video, ...response.video };
+    maybeReportVideoInfo();
   }
 
   await persistSession();
@@ -426,6 +443,9 @@ function connectSocket() {
   });
 
   socket.on("video-event", async (event) => {
+    // Synchronization only applies while this participant is Ready.
+    if (!currentUser()?.ready) return;
+
     console.log("RECEIVED VIDEO EVENT FROM SERVER", {
       event,
       controlledTabId: state.controlledTabId,
@@ -444,12 +464,20 @@ function connectSocket() {
   });
 
   socket.on("sync-state", async (event) => {
+    if (!currentUser()?.ready) return;
     await sendToControlledTab({ type: "TS_APPLY_SYNC_STATE", event });
   });
 
   socket.on("start-together", async (event) => {
+    if (!currentUser()?.ready) return;
     state.lastEvent = "Starting together";
     await sendToControlledTab({ type: "TS_START_TOGETHER", event });
+  });
+
+  socket.on("restart-together", async (event = {}) => {
+    if (!currentUser()?.ready) return;
+    state.lastEvent = "Restarting together";
+    await sendToControlledTab({ type: "TS_RESTART_TOGETHER", event });
   });
 }
 
@@ -494,8 +522,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case "TS_TOGGLE_READY":
         return toggleReady();
 
-      case "TS_START_TOGETHER":
-        return startTogether();
+      case "TS_RESTART_TOGETHER":
+        return restartTogether();
 
       case "TS_RESCAN_VIDEO":
         return refreshVideo(message.tabId);
@@ -503,6 +531,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case "TS_VIDEO_STATE":
         if (sender.tab?.id === state.controlledTabId && message.video) {
           state.video = { ...state.video, ...message.video };
+          maybeReportVideoInfo();
         }
         return { success: true };
 

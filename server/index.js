@@ -136,6 +136,8 @@ function getRoomState(roomId) {
       connected: Boolean(user.socketId),
       isHost: room.hostParticipantId === participantId,
       joinedAt: user.joinedAt,
+      videoId: user.videoId || "",
+      videoFound: Boolean(user.videoFound),
     })
   );
 
@@ -291,6 +293,8 @@ function addUserToRoom(socket, roomId, requestedParticipantId, name) {
       ready: false,
       joinedAt: new Date().toISOString(),
       disconnectTimer: null,
+      videoId: "",
+      videoFound: false,
     };
     room.users.set(participantId, user);
   }
@@ -329,6 +333,17 @@ function validateMembership(socket, roomId) {
 function clearRoomTimers(room) {
   for (const user of room.users.values()) {
     if (user.disconnectTimer) clearTimeout(user.disconnectTimer);
+  }
+}
+
+// Synchronization only reaches Ready participants. A non-ready participant
+// stays connected and visible in the room but is excluded from broadcast
+// targets so one non-ready guest can't block Ready participants syncing.
+function emitToReadyParticipants(room, eventName, payload, { excludeSocketId } = {}) {
+  for (const user of room.users.values()) {
+    if (!user.socketId || !user.ready) continue;
+    if (excludeSocketId && user.socketId === excludeSocketId) continue;
+    io.to(user.socketId).emit(eventName, payload);
   }
 }
 
@@ -456,6 +471,20 @@ io.on("connection", (socket) => {
     const room = rooms.get(roomId);
     room.users.get(socket.data.participantId).ready = event.ready;
     sendRoomStatus(roomId);
+
+    // Catch a newly-Ready participant up to the room's current playback
+    // position/state immediately, instead of leaving them frozen until the
+    // next event or host sync tick. room-status (above) always reaches the
+    // socket first, so by the time this arrives the client already knows
+    // it's Ready and will accept it.
+    if (event.ready) {
+      const snapshot = getPlaybackSnapshot(room);
+      io.to(socket.id).emit("sync-state", {
+        time: snapshot.currentTime,
+        isPlaying: snapshot.isPlaying,
+      });
+    }
+
     reply(callback, { success: true });
   });
 
@@ -553,11 +582,12 @@ io.on("connection", (socket) => {
       updatedAt: Date.now(),
     };
 
-    socket.to(roomId).emit("video-event", {
-      type,
-      time,
-      isPlaying: room.playback.isPlaying,
-    });
+    emitToReadyParticipants(
+      room,
+      "video-event",
+      { type, time, isPlaying: room.playback.isPlaying },
+      { excludeSocketId: socket.id }
+    );
   });
 
   socket.on("sync-state", (event = {}) => {
@@ -582,10 +612,72 @@ io.on("connection", (socket) => {
       updatedAt: Date.now(),
     };
 
-    socket.to(roomId).emit("sync-state", {
-      time,
-      isPlaying: event.isPlaying,
-    });
+    emitToReadyParticipants(
+      room,
+      "sync-state",
+      { time, isPlaying: event.isPlaying },
+      { excludeSocketId: socket.id }
+    );
+  });
+
+  socket.on("restart-together", (event = {}, callback) => {
+    const roomId = normalizeRoomId(event.roomId);
+
+    if (!roomId || !validateMembership(socket, roomId)) {
+      reply(callback, {
+        success: false,
+        message: "You are not a member of this room.",
+      });
+      return;
+    }
+
+    const room = rooms.get(roomId);
+
+    if (room.hostParticipantId !== socket.data.participantId) {
+      reply(callback, {
+        success: false,
+        message: "Only the host can restart playback.",
+      });
+      return;
+    }
+
+    const hasReadyParticipant = Array.from(room.users.values()).some(
+      (user) => user.socketId && user.ready
+    );
+
+    if (!hasReadyParticipant) {
+      reply(callback, {
+        success: false,
+        message: "No ready participants to restart.",
+      });
+      return;
+    }
+
+    const startAt = Date.now() + 3000;
+
+    room.playback = {
+      currentTime: 0,
+      isPlaying: true,
+      updatedAt: startAt,
+    };
+
+    emitToReadyParticipants(room, "restart-together", { roomId, startAt });
+
+    reply(callback, { success: true, startAt });
+  });
+
+  socket.on("video-info", (event = {}) => {
+    const roomId = normalizeRoomId(event.roomId);
+
+    if (!roomId || !validateMembership(socket, roomId)) return;
+
+    const room = rooms.get(roomId);
+    const user = room.users.get(socket.data.participantId);
+    if (!user) return;
+
+    user.videoId = normalizeText(event.videoId, 200);
+    user.videoFound = Boolean(event.found);
+    sendRoomStatus(roomId);
   });
 
   socket.on("chat-message", (event = {}, callback) => {

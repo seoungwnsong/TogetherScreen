@@ -525,3 +525,38 @@ input:disabled {
   color: #ffffff;
   transform: translateY(-1px);
 }
+
+@keyframes ts-refresh-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.icon-button.spin {
+  animation: ts-refresh-spin 0.5s ease;
+}
+
+.video-warning {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 12px;
+  padding: 9px 11px;
+  border: 1px solid rgba(240, 27, 40, 0.32);
+  border-radius: 9px;
+  background: rgba(240, 27, 40, 0.09);
+}
+
+.video-warning strong {
+  color: #ff8188;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.video-warning span {
+  color: var(--soft);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
