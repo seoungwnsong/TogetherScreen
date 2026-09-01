@@ -502,6 +502,7 @@ input:disabled {
 .member-menu-item {
   width: 100%;
   padding: 8px 9px;
+  border: 1px solid var(--border);
   border-radius: 5px;
   background: transparent;
   color: #fff;
@@ -511,11 +512,12 @@ input:disabled {
   letter-spacing: 0.08em;
   text-align: left;
   text-transform: uppercase;
+  transition: border-color 0.16s ease, color 0.16s ease;
 }
 
 .member-menu-item:hover {
-  background: rgba(240, 27, 40, 0.14);
-  color: #ff8188;
+  border-color: var(--brand);
+  color: var(--brand);
 }
 
 .button-grid {
@@ -591,13 +593,14 @@ input:disabled {
   gap: 4px;
   margin-bottom: 12px;
   padding: 10px 11px 11px;
-  border: 1px solid rgba(240, 27, 40, 0.32);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--brand);
   border-radius: 9px;
-  background: rgba(240, 27, 40, 0.09);
+  background: rgba(15, 15, 15, 0.96);
 }
 
 .follow-prompt strong {
-  color: #ff8188;
+  color: var(--brand);
   font-family: var(--condensed-font);
   font-size: 0.72rem;
   font-weight: 800;
