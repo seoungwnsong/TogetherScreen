@@ -4,6 +4,7 @@ const FORM_STORAGE_KEY = "togetherScreenExtensionForm";
 
 const elements = {
   connectionDot: document.getElementById("connectionDot"),
+  videoStatus: document.getElementById("videoStatus"),
   videoStatusTitle: document.getElementById("videoStatusTitle"),
   videoStatusDetail: document.getElementById("videoStatusDetail"),
   rescanButton: document.getElementById("rescanButton"),
@@ -50,15 +51,6 @@ let pollingTimer = null;
 let openMemberMenuId = null;
 let menuTargetUser = null;
 let pendingHostTransfer = null; // { participantId, name } | null
-
-function makeRoomCode() {
-  const first = ["night", "movie", "screen", "watch", "cinema"];
-  const second = ["room", "club", "party", "lounge", "date"];
-  const number = Math.floor(100 + Math.random() * 900);
-  return `${first[Math.floor(Math.random() * first.length)]}-${
-    second[Math.floor(Math.random() * second.length)]
-  }-${number}`;
-}
 
 function showMessage(element, message = "", type = "error") {
   element.textContent = message;
@@ -202,6 +194,10 @@ function render(state) {
   renderVideo(state.video);
   elements.lastEvent.textContent = state.lastEvent || "Waiting for a video tab";
 
+  // The Active Tab card is only meaningful once there's a room to sync
+  // against - detection itself keeps running in the background regardless.
+  elements.videoStatus.classList.toggle("hidden", !state.joined);
+
   elements.setupView.classList.toggle("hidden", Boolean(state.joined));
   elements.roomView.classList.toggle("hidden", !state.joined);
 
@@ -267,6 +263,11 @@ async function saveForm() {
 }
 
 async function submitRoom() {
+  if (!/^\d{6}$/.test(elements.roomInput.value)) {
+    showMessage(elements.setupMessage, "Room code must be 6 digits.");
+    return;
+  }
+
   setPending(true);
   showMessage(elements.setupMessage);
 
@@ -300,7 +301,7 @@ async function init() {
   const form = stored[FORM_STORAGE_KEY];
   if (form) {
     elements.nameInput.value = form.name || "";
-    elements.roomInput.value = form.roomId || "";
+    elements.roomInput.value = String(form.roomId || "").replace(/\D/g, "").slice(0, 6);
     setMode(form.mode === "join" ? "join" : "create");
   } else {
     setMode("create");
@@ -312,13 +313,26 @@ async function init() {
 
 elements.createModeButton.addEventListener("click", () => setMode("create"));
 elements.joinModeButton.addEventListener("click", () => setMode("join"));
-elements.generateButton.addEventListener("click", () => {
-  elements.roomInput.value = makeRoomCode();
-  elements.roomInput.focus();
+elements.generateButton.addEventListener("click", async () => {
+  elements.generateButton.disabled = true;
+  const response = await send({ type: "TS_GENERATE_ROOM_CODE" });
+  elements.generateButton.disabled = false;
+
+  if (response?.success && response.roomId) {
+    elements.roomInput.value = response.roomId;
+    elements.roomInput.focus();
+    showMessage(elements.setupMessage);
+    await saveForm();
+  } else {
+    showMessage(elements.setupMessage, response?.message || "Could not generate a room code.");
+  }
 });
 elements.submitButton.addEventListener("click", submitRoom);
 elements.nameInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") submitRoom();
+});
+elements.roomInput.addEventListener("input", () => {
+  elements.roomInput.value = elements.roomInput.value.replace(/\D/g, "").slice(0, 6);
 });
 elements.roomInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") submitRoom();
@@ -326,12 +340,18 @@ elements.roomInput.addEventListener("keydown", (event) => {
 
 elements.rescanButton.addEventListener("click", async () => {
   // Restart the spin every click, even if the detected video is unchanged.
-  elements.rescanButton.classList.remove("spin");
+  // is-rescanning holds the red accent for the whole animation, independent
+  // of hover, so it doesn't drop out if the pointer leaves mid-spin.
+  elements.rescanButton.classList.remove("spin", "is-rescanning");
   void elements.rescanButton.offsetWidth;
-  elements.rescanButton.classList.add("spin");
+  elements.rescanButton.classList.add("spin", "is-rescanning");
 
   const response = await send({ type: "TS_RESCAN_VIDEO", tabId: activeTabId });
   if (response?.state) render(response.state);
+});
+
+elements.rescanButton.addEventListener("animationend", () => {
+  elements.rescanButton.classList.remove("is-rescanning");
 });
 
 elements.readyButton.addEventListener("click", async () => {

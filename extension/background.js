@@ -322,6 +322,18 @@ async function applyRoomResponse(response, request) {
   return { success: true, state: snapshot() };
 }
 
+// Asks the server for an available 6-digit room code rather than generating
+// one locally, so the popup never offers a code that's already active.
+async function generateRoomCode() {
+  const response = await emitWithAck("generate-room-code", {});
+  return response?.success
+    ? { success: true, roomId: response.roomId }
+    : {
+        success: false,
+        message: response?.message || "Could not generate a room code.",
+      };
+}
+
 async function createRoom(payload) {
   const roomId = normalizeRoomId(payload.roomId);
   const name = normalizeName(payload.name);
@@ -643,6 +655,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
         return { success: true, state: snapshot() };
       }
+
+      case "TS_GENERATE_ROOM_CODE":
+        return generateRoomCode();
 
       case "TS_CREATE_ROOM":
         return createRoom(message);

@@ -167,13 +167,13 @@ button {
   font-size: 1.32rem;
   font-weight: 500;
   line-height: 1;
-  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+  transition: border-color 0.16s ease, color 0.16s ease;
 }
 
-.icon-button:hover:not(:disabled) {
-  border-color: var(--border-strong);
-  background: #202020;
-  transform: translateY(-1px);
+.icon-button:hover:not(:disabled),
+.icon-button.is-rescanning {
+  border-color: var(--brand);
+  color: var(--brand);
 }
 
 .card {
@@ -320,11 +320,12 @@ button {
   border: 1px solid var(--border);
   background: #181818;
   color: #fff;
+  transition: border-color 0.16s ease, color 0.16s ease;
 }
 
 .secondary-button:hover:not(:disabled) {
-  border-color: var(--border-strong);
-  background: #202020;
+  border-color: var(--brand);
+  color: var(--brand);
 }
 
 .room-code-row .secondary-button {

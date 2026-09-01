@@ -42,6 +42,21 @@ const rooms = new Map();
 const ROOM_ID_PATTERN = /^[A-Za-z0-9_-]{3,40}$/;
 const PARTICIPANT_ID_PATTERN = /^[A-Za-z0-9_-]{10,100}$/;
 const VIDEO_EVENT_TYPES = new Set(["play", "pause", "seek"]);
+const ROOM_CODE_MIN = 100000;
+const ROOM_CODE_MAX = 999999;
+
+// Server-authoritative 6-digit code generation for the extension's Generate
+// button. Loops until it finds a code with no active room, so the caller
+// never has to guess-and-retry against create-room.
+function generateAvailableRoomCode() {
+  let code;
+  do {
+    code = String(
+      ROOM_CODE_MIN + Math.floor(Math.random() * (ROOM_CODE_MAX - ROOM_CODE_MIN + 1))
+    );
+  } while (rooms.has(code));
+  return code;
+}
 
 app.get("/", (_request, response) => {
   response.send("TogetherScreen server is running");
@@ -365,6 +380,10 @@ function emitToReadyParticipants(room, eventName, payload, { excludeSocketId } =
 
 io.on("connection", (socket) => {
   console.log("Connected:", socket.id);
+
+  socket.on("generate-room-code", (_event, callback) => {
+    reply(callback, { success: true, roomId: generateAvailableRoomCode() });
+  });
 
   socket.on("create-room", (event = {}, callback) => {
     const roomId = normalizeRoomId(event.roomId);
