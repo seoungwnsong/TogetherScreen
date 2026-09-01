@@ -114,6 +114,15 @@
 
         <div id="memberList" class="member-list"></div>
 
+        <div id="passHostConfirm" class="follow-prompt hidden" role="status">
+          <strong id="passHostConfirmTitle">Pass Host?</strong>
+          <span>They will become the room Host and receive Host controls.</span>
+          <div class="follow-prompt-actions">
+            <button id="passHostCancelButton" class="secondary-button" type="button">Cancel</button>
+            <button id="passHostConfirmButton" class="primary-button" type="button">Pass Host</button>
+          </div>
+        </div>
+
         <div class="button-grid">
           <button id="readyButton" class="secondary-button" type="button">Ready</button>
           <button id="startButton" class="primary-button" type="button">Restart together</button>
@@ -127,6 +136,10 @@
         <span class="footer-line" aria-hidden="true"></span>
         <span id="lastEvent">Waiting for a video tab</span>
       </footer>
+
+      <div id="memberMenu" class="member-menu hidden">
+        <button id="passHostMenuItem" class="member-menu-item" type="button">Pass Host</button>
+      </div>
     </main>
 
     <script src="popup.js"></script>

@@ -428,6 +428,27 @@ async function restartTogether() {
   return emitWithAck("restart-together", { roomId: state.roomId });
 }
 
+// Hands Host controls to another connected participant. Host-only; the
+// server re-validates the caller is the current host and the target is a
+// connected room member before moving room.hostParticipantId.
+async function transferHost(targetParticipantId) {
+  if (!state.joined || !currentUser()?.isHost) {
+    return { success: false, message: "Only the host can transfer host controls." };
+  }
+
+  const response = await emitWithAck("transfer-host", {
+    roomId: state.roomId,
+    targetParticipantId,
+  });
+
+  return response?.success
+    ? { success: true, state: snapshot() }
+    : {
+        success: false,
+        message: response?.message || "Could not transfer host controls.",
+      };
+}
+
 // Dismisses the Follow Host prompt for whichever host video it's currently
 // showing for. Does not navigate, leave the room, or touch Ready state.
 function dismissFollowPrompt() {
@@ -637,6 +658,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       case "TS_RESTART_TOGETHER":
         return restartTogether();
+
+      case "TS_TRANSFER_HOST":
+        return transferHost(message.targetParticipantId);
 
       case "TS_DISMISS_FOLLOW_PROMPT":
         return dismissFollowPrompt();

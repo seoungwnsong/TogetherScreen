@@ -22,6 +22,12 @@ const elements = {
   readyCount: document.getElementById("readyCount"),
   yourStatus: document.getElementById("yourStatus"),
   memberList: document.getElementById("memberList"),
+  memberMenu: document.getElementById("memberMenu"),
+  passHostMenuItem: document.getElementById("passHostMenuItem"),
+  passHostConfirm: document.getElementById("passHostConfirm"),
+  passHostConfirmTitle: document.getElementById("passHostConfirmTitle"),
+  passHostCancelButton: document.getElementById("passHostCancelButton"),
+  passHostConfirmButton: document.getElementById("passHostConfirmButton"),
   followPrompt: document.getElementById("followPrompt"),
   followPromptTitle: document.getElementById("followPromptTitle"),
   followPromptMessage: document.getElementById("followPromptMessage"),
@@ -38,6 +44,12 @@ let mode = "create";
 let activeTabId = null;
 let latestState = null;
 let pollingTimer = null;
+
+// UI-only state for the member row "..." menu and its Pass Host confirmation.
+// Neither is server state — both just gate what the popup shows next.
+let openMemberMenuId = null;
+let menuTargetUser = null;
+let pendingHostTransfer = null; // { participantId, name } | null
 
 function makeRoomCode() {
   const first = ["night", "movie", "screen", "watch", "cinema"];
@@ -109,7 +121,39 @@ function renderFollowPrompt(prompt) {
   elements.followPromptMessage.textContent = prompt.message;
 }
 
-function renderMembers(users = []) {
+function closeMemberMenu() {
+  openMemberMenuId = null;
+  menuTargetUser = null;
+  elements.memberMenu.classList.add("hidden");
+}
+
+function openMemberMenuAt(button, user) {
+  openMemberMenuId = user.participantId;
+  menuTargetUser = user;
+
+  const rect = button.getBoundingClientRect();
+  const menuWidth = 132;
+  const left = Math.max(
+    8,
+    Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)
+  );
+
+  elements.memberMenu.style.top = `${rect.bottom + 4}px`;
+  elements.memberMenu.style.left = `${left}px`;
+  elements.memberMenu.classList.remove("hidden");
+}
+
+function renderPassHostConfirm() {
+  const visible = Boolean(pendingHostTransfer);
+  elements.passHostConfirm.classList.toggle("hidden", !visible);
+  if (visible) {
+    elements.passHostConfirmTitle.textContent = `Pass Host to ${pendingHostTransfer.name}?`;
+  }
+}
+
+// Only the current host sees a "..." beside every other participant - never
+// beside their own row, and never at all for a non-host viewer.
+function renderMembers(users = [], isHost = false, myParticipantId = "") {
   elements.memberList.replaceChildren();
 
   for (const user of users) {
@@ -119,10 +163,34 @@ function renderMembers(users = []) {
     const name = document.createElement("span");
     name.textContent = `${user.name}${user.isHost ? " · Host" : ""}`;
 
+    const right = document.createElement("div");
+    right.className = "member-right";
+
+    const canPassHostTo =
+      isHost && !user.isHost && user.participantId !== myParticipantId;
+
+    if (canPassHostTo) {
+      const menuButton = document.createElement("button");
+      menuButton.type = "button";
+      menuButton.className = "member-menu-button";
+      menuButton.textContent = "⋯";
+      menuButton.setAttribute("aria-label", `Actions for ${user.name}`);
+      menuButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (openMemberMenuId === user.participantId) {
+          closeMemberMenu();
+        } else {
+          openMemberMenuAt(menuButton, user);
+        }
+      });
+      right.appendChild(menuButton);
+    }
+
     const status = document.createElement("span");
     status.textContent = user.ready ? "Ready" : "Not ready";
+    right.appendChild(status);
 
-    item.append(name, status);
+    item.append(name, right);
     elements.memberList.appendChild(item);
   }
 }
@@ -139,6 +207,9 @@ function render(state) {
 
   if (!state.joined) {
     elements.followPrompt.classList.add("hidden");
+    closeMemberMenu();
+    pendingHostTransfer = null;
+    renderPassHostConfirm();
     if (state.error) showMessage(elements.setupMessage, state.error);
     return;
   }
@@ -157,8 +228,21 @@ function render(state) {
       ? "Restart every Ready participant's video from 0:00"
       : "Waiting for everyone to be ready"
     : "Only the host can restart together";
-  renderMembers(state.users);
+  renderMembers(state.users, state.isHost, state.participantId);
   renderFollowPrompt(state.followPrompt);
+
+  // A room-state refresh can invalidate an open menu or pending confirmation
+  // (the host lost the role, or the target left) - reconcile before showing.
+  if (!state.isHost) {
+    closeMemberMenu();
+    if (pendingHostTransfer) pendingHostTransfer = null;
+  } else if (
+    pendingHostTransfer &&
+    !state.users.some((user) => user.participantId === pendingHostTransfer.participantId)
+  ) {
+    pendingHostTransfer = null;
+  }
+  renderPassHostConfirm();
 
   if (state.error) showMessage(elements.roomMessage, state.error);
 }
@@ -297,6 +381,48 @@ elements.leaveButton.addEventListener("click", async () => {
   const response = await send({ type: "TS_LEAVE_ROOM" });
   if (response?.state) render(response.state);
 });
+
+elements.passHostMenuItem.addEventListener("click", () => {
+  if (!menuTargetUser) return;
+  pendingHostTransfer = {
+    participantId: menuTargetUser.participantId,
+    name: menuTargetUser.name,
+  };
+  closeMemberMenu();
+  renderPassHostConfirm();
+});
+
+elements.passHostCancelButton.addEventListener("click", () => {
+  pendingHostTransfer = null;
+  renderPassHostConfirm();
+});
+
+elements.passHostConfirmButton.addEventListener("click", async () => {
+  if (!pendingHostTransfer) return;
+  const targetParticipantId = pendingHostTransfer.participantId;
+  pendingHostTransfer = null;
+  renderPassHostConfirm();
+
+  const response = await send({ type: "TS_TRANSFER_HOST", targetParticipantId });
+  if (!response?.success) {
+    showMessage(elements.roomMessage, response?.message || "Could not transfer host controls.");
+  } else {
+    showMessage(elements.roomMessage, "Host controls transferred.", "success");
+  }
+  await loadState();
+});
+
+document.addEventListener("click", (event) => {
+  if (elements.memberMenu.classList.contains("hidden")) return;
+  if (elements.memberMenu.contains(event.target)) return;
+  closeMemberMenu();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeMemberMenu();
+});
+
+elements.memberList.addEventListener("scroll", closeMemberMenu);
 
 window.addEventListener("unload", () => {
   if (pollingTimer) clearInterval(pollingTimer);

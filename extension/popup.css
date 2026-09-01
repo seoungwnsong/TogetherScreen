@@ -462,6 +462,62 @@ input:disabled {
   white-space: nowrap;
 }
 
+.member-right {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.member-menu-button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--faint);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.member-menu-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.member-menu {
+  position: fixed;
+  z-index: 40;
+  min-width: 132px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #161616;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+}
+
+.member-menu-item {
+  width: 100%;
+  padding: 8px 9px;
+  border-radius: 5px;
+  background: transparent;
+  color: #fff;
+  font-family: var(--condensed-font);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.member-menu-item:hover {
+  background: rgba(240, 27, 40, 0.14);
+  color: #ff8188;
+}
+
 .button-grid {
   display: grid;
   grid-template-columns: 0.92fr 1.4fr;
@@ -496,6 +552,10 @@ input:disabled {
 }
 
 #roleBadge {
+  display: none;
+}
+
+.connection-dot {
   display: none;
 }
 
