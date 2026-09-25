@@ -1,30 +1,17 @@
 "use strict";
 
 (() => {
+  // State & constants
   const OVERLAY_ID = "togetherscreen-extension-overlay";
   let activeVideo = null;
+  // Set while a remote play/pause/seek/restart is being applied, so the
+  // local play/pause/seeked listeners below don't echo it back as an
+  // outgoing event (which would otherwise create a sync feedback loop).
   let applyingRemoteUpdate = false;
   let attachedListeners = null;
   let scanTimer = null;
 
-  // --- TEMPORARY diagnostic-only logging (no behavior change). Remove once
-  // the cross-site seek/restart sync issue is diagnosed. ---
-  const SEEK_DEBUG_PREFIX = "[TogetherScreen Seek Debug]";
-  const RESTART_DEBUG_PREFIX = "[TogetherScreen Restart Debug]";
-  // Tracks the most recent time we asked the video to seek to, purely so the
-  // seeking/seeked/timeupdate debug listeners below can report it alongside
-  // whatever the video actually did.
-  let lastRequestedSeekTime = null;
-
-  function logSeekDebugEvent(eventName, video) {
-    console.log(SEEK_DEBUG_PREFIX, "video event", {
-      event: eventName,
-      currentTime: video.currentTime,
-      seeking: video.seeking,
-      requestedTargetTime: lastRequestedSeekTime,
-    });
-  }
-
+  // Video detection
   function isVisibleVideo(video) {
     const rect = video.getBoundingClientRect();
     const style = getComputedStyle(video);
@@ -52,6 +39,7 @@
     })[0];
   }
 
+  // Video-context reporting
   // Minimal video-context for cross-participant comparisons: a stable
   // opaque videoId for "same video?" checks, plus a sanitized navigable
   // followUrl (host/pathname only, no tracking params) for Follow Host.
@@ -119,6 +107,7 @@
     }).catch(() => {});
   }
 
+  // Video attachment & local media listeners
   function removeListeners() {
     if (!activeVideo || !attachedListeners) return;
 
@@ -127,21 +116,16 @@
     activeVideo.removeEventListener("seeked", attachedListeners.seeked);
     activeVideo.removeEventListener("loadedmetadata", attachedListeners.loadedmetadata);
     activeVideo.removeEventListener("durationchange", attachedListeners.durationchange);
-    activeVideo.removeEventListener("seeking", attachedListeners.debugSeeking);
-    activeVideo.removeEventListener("seeked", attachedListeners.debugSeeked);
-    activeVideo.removeEventListener("timeupdate", attachedListeners.debugTimeupdate);
     attachedListeners = null;
   }
 
+  // Sends a local play/pause/seek to the background script (which relays it
+  // to the server) unless we're the ones currently applying a remote update.
   function sendLocalEvent(type) {
     if (!activeVideo || applyingRemoteUpdate) return;
 
     const time = Number(activeVideo.currentTime) || 0;
     const isPlaying = !activeVideo.paused;
-
-    if (type === "seek") {
-      console.log(SEEK_DEBUG_PREFIX, "outgoing seek", { targetTime: time });
-    }
 
     chrome.runtime.sendMessage({
       type: "TS_LOCAL_VIDEO_EVENT",
@@ -175,10 +159,6 @@
       },
       loadedmetadata: reportVideoState,
       durationchange: reportVideoState,
-      // TEMPORARY diagnostic-only listeners, see SEEK_DEBUG_PREFIX above.
-      debugSeeking: () => logSeekDebugEvent("seeking", video),
-      debugSeeked: () => logSeekDebugEvent("seeked", video),
-      debugTimeupdate: () => logSeekDebugEvent("timeupdate", video),
     };
 
     video.addEventListener("play", attachedListeners.play);
@@ -186,9 +166,6 @@
     video.addEventListener("seeked", attachedListeners.seeked);
     video.addEventListener("loadedmetadata", attachedListeners.loadedmetadata);
     video.addEventListener("durationchange", attachedListeners.durationchange);
-    video.addEventListener("seeking", attachedListeners.debugSeeking);
-    video.addEventListener("seeked", attachedListeners.debugSeeked);
-    video.addEventListener("timeupdate", attachedListeners.debugTimeupdate);
 
     reportVideoState();
   }
@@ -241,41 +218,14 @@
     return overlay;
   }
 
+  // Receiving remote media events & remote seek suppression
   async function applyVideoEvent(event) {
     const video = activeVideo || findBestVideo();
     if (!video) {
-      console.log(SEEK_DEBUG_PREFIX, "command received but no video found", { event });
       return { success: false, message: "No video found." };
     }
 
     attachVideo(video);
-
-    const requestedTargetTime = Math.max(0, Number(event.time) || 0);
-    lastRequestedSeekTime = requestedTargetTime;
-    const currentTimeBefore = video.currentTime;
-
-    console.log(SEEK_DEBUG_PREFIX, "command received", {
-      type: event.type,
-      isPlaying: event.isPlaying,
-      requestedTargetTime,
-      currentTimeBefore,
-      duration: video.duration,
-      paused: video.paused,
-      readyState: video.readyState,
-      networkState: video.networkState,
-      seeking: video.seeking,
-      seekableLength: video.seekable ? video.seekable.length : 0,
-    });
-
-    if (video.seekable && video.seekable.length > 0) {
-      for (let i = 0; i < video.seekable.length; i += 1) {
-        console.log(SEEK_DEBUG_PREFIX, "seekable range", {
-          index: i,
-          start: video.seekable.start(i),
-          end: video.seekable.end(i),
-        });
-      }
-    }
 
     applyingRemoteUpdate = true;
 
@@ -283,11 +233,6 @@
       if (Math.abs(video.currentTime - Number(event.time || 0)) > 0.2) {
         video.currentTime = Math.max(0, Number(event.time) || 0);
       }
-
-      console.log(SEEK_DEBUG_PREFIX, "currentTime after assignment", {
-        currentTimeBefore,
-        currentTimeAfter: video.currentTime,
-      });
 
       if (event.type === "play" || event.isPlaying === true) {
         try {
@@ -328,12 +273,10 @@
     return { success: true, video: videoSnapshot() };
   }
 
+  // Countdown / Restart Together
   async function startTogether(event, { isRestart = false } = {}) {
     const video = activeVideo || findBestVideo();
     if (!video) {
-      if (isRestart) {
-        console.log(RESTART_DEBUG_PREFIX, "restart command received but no video found", { event });
-      }
       return { success: false, message: "No video found." };
     }
 
@@ -344,14 +287,6 @@
     let current = secondsRemaining;
     const overlay = showOverlay(String(current));
 
-    if (isRestart) {
-      console.log(RESTART_DEBUG_PREFIX, "restart command received", {
-        restartTarget: targetTime,
-        currentTimeBefore: video.currentTime,
-        delayMs: delay,
-      });
-    }
-
     const countdown = setInterval(() => {
       current -= 1;
       if (current > 0) overlay.textContent = String(current);
@@ -361,31 +296,7 @@
       clearInterval(countdown);
       overlay.textContent = "Play";
       applyingRemoteUpdate = true;
-
-      // TEMPORARY diagnostic-only tracking for Restart Debug, see below.
-      let sawSeeking = false;
-      let sawSeeked = false;
-      let onDebugSeeking = null;
-      let onDebugSeeked = null;
-
-      if (isRestart) {
-        lastRequestedSeekTime = targetTime;
-        onDebugSeeking = () => { sawSeeking = true; };
-        onDebugSeeked = () => { sawSeeked = true; };
-        video.addEventListener("seeking", onDebugSeeking);
-        video.addEventListener("seeked", onDebugSeeked);
-      }
-
-      const currentTimeBeforeAssign = video.currentTime;
       video.currentTime = targetTime;
-
-      if (isRestart) {
-        console.log(RESTART_DEBUG_PREFIX, "currentTime assigned", {
-          restartTarget: targetTime,
-          currentTimeBefore: currentTimeBeforeAssign,
-          currentTimeImmediatelyAfter: video.currentTime,
-        });
-      }
 
       try {
         await video.play();
@@ -397,16 +308,6 @@
         setTimeout(() => {
           applyingRemoteUpdate = false;
           reportVideoState();
-
-          if (isRestart) {
-            video.removeEventListener("seeking", onDebugSeeking);
-            video.removeEventListener("seeked", onDebugSeeked);
-            console.log(RESTART_DEBUG_PREFIX, "final state", {
-              sawSeekingEvent: sawSeeking,
-              sawSeekedEvent: sawSeeked,
-              finalCurrentTime: video.currentTime,
-            });
-          }
         }, 500);
       }
     }, delay);
@@ -414,6 +315,7 @@
     return { success: true };
   }
 
+  // Chrome runtime messages
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     (async () => {
       switch (message?.type) {
@@ -431,13 +333,8 @@
             isPlaying: Boolean(message.playback?.isPlaying),
           });
 
-        case "TS_APPLY_VIDEO_EVENT": {
-          const event = message.event || {};
-          if (event.type === "seek") {
-            console.log(SEEK_DEBUG_PREFIX, "incoming seek", { targetTime: event.time });
-          }
-          return applyVideoEvent(event);
-        }
+        case "TS_APPLY_VIDEO_EVENT":
+          return applyVideoEvent(message.event || {});
 
         case "TS_APPLY_SYNC_STATE":
           return applySyncState(message.event || {});

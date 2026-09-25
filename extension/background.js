@@ -1,5 +1,6 @@
 "use strict";
 
+// Configuration & shared state
 importScripts("config.js", "socket.io.min.js");
 
 const CONFIG = globalThis.TOGETHER_SCREEN_CONFIG;
@@ -27,6 +28,7 @@ const state = {
   lastEvent: "Waiting for a video tab",
 };
 
+// Connection/reconnect state and timers.
 let socket = null;
 let syncTimer = null;
 let keepAliveTimer = null;
@@ -34,6 +36,7 @@ let lastReportedVideoId = null;
 let lastReportedVideoFound = null;
 let lastReportedFollowUrl = null;
 
+// Video-context reporting & Follow Host
 // Tracks the host's videoId across room-status updates so a genuine host
 // video change (A -> B) can be told apart from a first detection, a rescan
 // of the same video, or a playback-only update (none of which touch
@@ -77,7 +80,7 @@ function maybeReportVideoInfo() {
 // Updates hostVideoTracking from the latest room-status and flags a genuine
 // host video change (never on first detection or an unchanged/empty video).
 function updateHostVideoTracking() {
-  const hostUser = state.room?.users?.find((user) => user.isHost);
+  const hostUser = getHostUser();
   const hostVideoId = hostUser?.videoFound ? hostUser.videoId || "" : "";
 
   if (!hostVideoTracking.known) {
@@ -107,7 +110,7 @@ function computeFollowPrompt() {
   const me = currentUser();
   if (!state.joined || !me?.ready || me.isHost) return null;
 
-  const hostUser = state.room?.users?.find((user) => user.isHost);
+  const hostUser = getHostUser();
   if (!hostUser?.connected) return null;
 
   const hostVideoId = hostUser.videoFound ? hostUser.videoId || "" : "";
@@ -132,6 +135,7 @@ function computeFollowPrompt() {
   };
 }
 
+// Utility helpers & room state
 function makeParticipantId() {
   return (
     globalThis.crypto?.randomUUID?.() ||
@@ -155,6 +159,10 @@ function currentUser() {
   return state.room?.users?.find(
     (user) => user.participantId === state.participantId
   );
+}
+
+function getHostUser() {
+  return state.room?.users?.find((user) => user.isHost);
 }
 
 function getConnectedUsers() {
@@ -201,6 +209,7 @@ function snapshot() {
   };
 }
 
+// Session persistence & content-script communication
 async function persistSession() {
   if (!state.joined) {
     await chrome.storage.local.remove(STORAGE_KEY);
@@ -232,6 +241,7 @@ async function sendToControlledTab(message) {
   }
 }
 
+// Socket.IO helpers, keep-alive, and the host's sync loop
 function emitWithAck(eventName, payload = {}) {
   return new Promise((resolve) => {
     if (!socket?.connected) {
@@ -296,6 +306,7 @@ function updateHostSync() {
   }, CONFIG.SYNC_INTERVAL_MS);
 }
 
+// Room create / join / leave
 async function applyRoomResponse(response, request) {
   if (!response?.success || !response.room) return response;
 
@@ -409,6 +420,7 @@ async function leaveRoom() {
   return { success: true, state: snapshot() };
 }
 
+// Ready state & Restart Together
 async function toggleReady() {
   const me = currentUser();
   if (!state.joined || !me) {
@@ -440,6 +452,10 @@ async function restartTogether() {
   return emitWithAck("restart-together", { roomId: state.roomId });
 }
 
+// Host transfer
+// Automatic host reassignment (e.g. on disconnect) is decided server-side;
+// this extension only ever learns the new host via a room-status update.
+
 // Hands Host controls to another connected participant. Host-only; the
 // server re-validates the caller is the current host and the target is a
 // connected room member before moving room.hostParticipantId.
@@ -464,11 +480,12 @@ async function transferHost(targetParticipantId) {
 // Dismisses the Follow Host prompt for whichever host video it's currently
 // showing for. Does not navigate, leave the room, or touch Ready state.
 function dismissFollowPrompt() {
-  const hostUser = state.room?.users?.find((user) => user.isHost);
+  const hostUser = getHostUser();
   followPromptDismissedFor = hostUser?.videoFound ? hostUser.videoId || "" : "";
   return { success: true, state: snapshot() };
 }
 
+// Video rescan
 async function refreshVideo(tabId) {
   if (Number.isInteger(tabId)) state.controlledTabId = tabId;
   const response = await sendToControlledTab({ type: "TS_RESCAN_VIDEO" });
@@ -482,6 +499,7 @@ async function refreshVideo(tabId) {
   return { success: Boolean(response?.success), state: snapshot() };
 }
 
+// Socket.IO connection & event handlers
 function connectSocket() {
   if (typeof io !== "function") {
     state.connected = false;
@@ -523,12 +541,6 @@ function connectSocket() {
   });
 
   socket.on("connect", async () => {
-    console.log("SOCKET.IO CONNECTED", {
-      socketId: socket.id,
-      serverUrl: CONFIG.SERVER_URL,
-      transport: socket.io.engine.transport.name,
-    });
-
     state.connected = true;
     state.connecting = false;
     state.error = "";
@@ -562,14 +574,6 @@ function connectSocket() {
   });
 
   socket.on("connect_error", (error) => {
-    console.error("SOCKET.IO CONNECTION ERROR", {
-      serverUrl: CONFIG.SERVER_URL,
-      message: error?.message,
-      description: error?.description,
-      type: error?.type,
-      context: error?.context,
-    });
-
     state.connected = false;
     state.connecting = false;
     state.error = error?.message || "Could not connect to the server.";
@@ -592,21 +596,9 @@ function connectSocket() {
     // Synchronization only applies while this participant is Ready.
     if (!currentUser()?.ready) return;
 
-    console.log("RECEIVED VIDEO EVENT FROM SERVER", {
-      event,
-      controlledTabId: state.controlledTabId,
-      joined: state.joined,
-      roomId: state.roomId,
-    });
-
     state.lastEvent = `Received ${event.type} at ${Number(event.time).toFixed(1)}s`;
 
-    const result = await sendToControlledTab({
-      type: "TS_APPLY_VIDEO_EVENT",
-      event,
-    });
-
-    console.log("SENT EVENT TO VIDEO TAB", result);
+    await sendToControlledTab({ type: "TS_APPLY_VIDEO_EVENT", event });
   });
 
   socket.on("sync-state", async (event) => {
@@ -627,6 +619,7 @@ function connectSocket() {
   });
 }
 
+// Chrome extension lifecycle & message handling
 chrome.runtime.onInstalled.addListener(() => {
   connectSocket();
 });
@@ -691,17 +684,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return { success: true };
 
       case "TS_LOCAL_VIDEO_EVENT": {
-        console.log("TS_LOCAL_VIDEO_EVENT DEBUG", {
-          senderTabId: sender.tab?.id,
-          controlledTabId: state.controlledTabId,
-          joined: state.joined,
-          participantId: state.participantId,
-          isHost: currentUser()?.isHost,
-          socketConnected: socket?.connected,
-          roomId: state.roomId,
-          event: message.event,
-        });
-
         if (
           sender.tab?.id === state.controlledTabId &&
           state.joined &&
@@ -709,13 +691,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           socket?.connected
         ) {
           const event = message.event || {};
-
-          console.log("SENDING VIDEO EVENT TO SERVER", {
-            roomId: state.roomId,
-            type: event.type,
-            time: Number(event.time) || 0,
-            isPlaying: Boolean(event.isPlaying),
-          });
 
           socket.emit("video-event", {
             roomId: state.roomId,
@@ -725,8 +700,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           });
 
           state.lastEvent = `${event.type} at ${Number(event.time).toFixed(1)}s`;
-        } else {
-          console.warn("VIDEO EVENT BLOCKED");
         }
 
         return { success: true };

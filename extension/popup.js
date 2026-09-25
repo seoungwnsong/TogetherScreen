@@ -2,6 +2,7 @@
 
 const FORM_STORAGE_KEY = "togetherScreenExtensionForm";
 
+// DOM references
 const elements = {
   connectionDot: document.getElementById("connectionDot"),
   videoStatus: document.getElementById("videoStatus"),
@@ -41,6 +42,7 @@ const elements = {
   lastEvent: document.getElementById("lastEvent"),
 };
 
+// Local state
 let mode = "create";
 let activeTabId = null;
 let latestState = null;
@@ -52,6 +54,7 @@ let openMemberMenuId = null;
 let menuTargetUser = null;
 let pendingHostTransfer = null; // { participantId, name } | null
 
+// Utility helpers
 function showMessage(element, message = "", type = "error") {
   element.textContent = message;
   element.classList.toggle("success", type === "success");
@@ -93,6 +96,7 @@ function renderVideo(video = {}) {
   }
 }
 
+// Follow Host prompt
 function sanitizeFollowUrl(value) {
   if (typeof value !== "string" || !value) return "";
 
@@ -113,6 +117,7 @@ function renderFollowPrompt(prompt) {
   elements.followPromptMessage.textContent = prompt.message;
 }
 
+// Pass Host menu
 function closeMemberMenu() {
   openMemberMenuId = null;
   menuTargetUser = null;
@@ -135,6 +140,7 @@ function openMemberMenuAt(button, user) {
   elements.memberMenu.classList.remove("hidden");
 }
 
+// Pass Host confirmation
 function renderPassHostConfirm() {
   const visible = Boolean(pendingHostTransfer);
   elements.passHostConfirm.classList.toggle("hidden", !visible);
@@ -143,6 +149,7 @@ function renderPassHostConfirm() {
   }
 }
 
+// Member list
 // Only the current host sees a "..." beside every other participant - never
 // beside their own row, and never at all for a non-host viewer.
 function renderMembers(users = [], isHost = false, myParticipantId = "") {
@@ -187,6 +194,7 @@ function renderMembers(users = [], isHost = false, myParticipantId = "") {
   }
 }
 
+// Rendering (main) — also computes Restart Together's all-Ready gate
 function render(state) {
   latestState = state;
   elements.connectionDot.classList.toggle("online", Boolean(state.connected));
@@ -243,6 +251,7 @@ function render(state) {
   if (state.error) showMessage(elements.roomMessage, state.error);
 }
 
+// Background messaging
 async function send(message) {
   return chrome.runtime.sendMessage(message);
 }
@@ -252,6 +261,7 @@ async function loadState() {
   if (response?.state) render(response.state);
 }
 
+// Create / Join room
 async function saveForm() {
   await chrome.storage.local.set({
     [FORM_STORAGE_KEY]: {
@@ -293,6 +303,7 @@ async function submitRoom() {
   }
 }
 
+// Initialization & polling
 async function init() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   activeTabId = tab?.id ?? null;
@@ -311,6 +322,9 @@ async function init() {
   pollingTimer = setInterval(loadState, 1000);
 }
 
+// Event listeners
+
+// Create / Join room & room-code generation
 elements.createModeButton.addEventListener("click", () => setMode("create"));
 elements.joinModeButton.addEventListener("click", () => setMode("join"));
 elements.generateButton.addEventListener("click", async () => {
@@ -338,6 +352,7 @@ elements.roomInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") submitRoom();
 });
 
+// Rescan handling
 elements.rescanButton.addEventListener("click", async () => {
   // Restart the spin every click, even if the detected video is unchanged.
   // is-rescanning holds the red accent for the whole animation, independent
@@ -354,6 +369,7 @@ elements.rescanButton.addEventListener("animationend", () => {
   elements.rescanButton.classList.remove("is-rescanning");
 });
 
+// Ready / Restart Together controls
 elements.readyButton.addEventListener("click", async () => {
   const response = await send({ type: "TS_TOGGLE_READY" });
   if (!response?.success) {
@@ -374,6 +390,7 @@ elements.startButton.addEventListener("click", async () => {
   }
 });
 
+// Follow Host prompt
 elements.followHostButton.addEventListener("click", async () => {
   const safeUrl = sanitizeFollowUrl(latestState?.followPrompt?.followUrl);
   if (!safeUrl) return;
@@ -397,11 +414,13 @@ elements.dismissPromptButton.addEventListener("click", async () => {
   if (response?.state) render(response.state);
 });
 
+// Leave room
 elements.leaveButton.addEventListener("click", async () => {
   const response = await send({ type: "TS_LEAVE_ROOM" });
   if (response?.state) render(response.state);
 });
 
+// Pass Host menu & confirmation
 elements.passHostMenuItem.addEventListener("click", () => {
   if (!menuTargetUser) return;
   pendingHostTransfer = {
@@ -448,6 +467,7 @@ window.addEventListener("unload", () => {
   if (pollingTimer) clearInterval(pollingTimer);
 });
 
+// Kick off initialization now that every listener above is wired up.
 init().catch((error) => {
   showMessage(elements.setupMessage, error.message || "Could not initialize the extension.");
 });
